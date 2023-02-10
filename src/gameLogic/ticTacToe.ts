@@ -1,6 +1,6 @@
 import { TTicTacToeBoard, TTicTacToeSide } from '../types'
 
-export const initializeBoard = (size: number): TTicTacToeBoard => {
+export const initBoard = (size: number): TTicTacToeBoard => {
     const state: TTicTacToeBoard = [];
     for (let i = 0; i < size; i++) {
         state[i] = []
