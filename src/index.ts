@@ -1,2 +1,4 @@
 export * from './types'
-export * from './ticTacToe'
+export * from './gameLogic/ticTacToe'
+export * from './gameLogic/chess'
+export * from './gameLogic/ultimateTicTacToe'
