@@ -1,6 +1,6 @@
 import { TChessState } from "../types";
 
-export const initializeBoard = () => {
+export const initChessBoard = () => {
     const state: TChessState = [];
     for (let i = 0; i < 8; i++) {
         state[i] = []

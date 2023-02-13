@@ -1,4 +1,5 @@
 export * from './types'
-export * as ticTacToe from './gameLogic/ticTacToe'
-export * as chess from './gameLogic/chess'
-export * as ultimateTicTacToe from './gameLogic/ultimateTicTacToe'
+export * from './gameLogic/ticTacToe'
+export * from './gameLogic/chess'
+export * from './gameLogic/uTicTacToe'
+export * from './util'
