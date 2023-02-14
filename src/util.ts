@@ -2,7 +2,8 @@ import {
     ITicTacToeState,
     TTicTacToeBoard,
     TUTicTacToeBoard,
-    IUTicTacToeState
+    IUTicTacToeState,
+    TChessBoard
 } from "./types";
 
 export const initTicTacToeBoard = (size: number) => {
@@ -55,4 +56,5 @@ export const initUTicTacToeState = (): IUTicTacToeState => {
         winner: null
     }
 }
+
 
