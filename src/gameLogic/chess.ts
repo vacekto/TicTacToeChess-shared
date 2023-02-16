@@ -85,11 +85,11 @@ export class ChessGame {
 
     }
 
-    private getMovesInDir(moveInDir: TDir, [X, Y]: [number, number]) {
+    private getMovesInDir(moveInDir: TDir, [X, Y]: [number, number], limit: number) {
         const [piece, board] = [this.board[X][Y], this.board]
         const moves = []
 
-        for (let i = 1; i < 8; i++) {
+        for (let i = 1; i < limit; i++) {
             const [A, B] = moveInDir([X, Y], i)
             if (isOutOfBounds([A, B]) || board[A][B][0] === piece[0]) break
             moves.push([A, B])
@@ -158,9 +158,18 @@ export class ChessGame {
 
 
 
-    private getKnightMoves() {
-        //getPotentialMoves
-    }
+    /*private getKnightMoves([X, Y]: [number, number]) {
+        let moves: [number, number][] = []
+        if (isOutOfBounds([X, Y])) moves
+        const piece = this.board[X][Y]
+        if (piece[1] !== 'n') moves
+
+        for (let dir of pieceDirs[piece[1]]) {
+            const movesInDir = this.getMovesInDir(dir, [X, Y]) as [number, number][]
+            moves = [...moves, ...movesInDir]
+        }
+        return moves
+    }*/
 
     private getKingMoves() {
 
@@ -168,22 +177,17 @@ export class ChessGame {
 
     getPotentialMoves([X, Y]: [number, number]) {
         if (isOutOfBounds([X, Y])) return []
-        const piece = this.board[X][Y][1]
+        const piece = this.board[X][Y]
 
-        if (piece === 'p') {
+        if (piece[1] === 'p') {
             return this.getPawnMoves([X, Y])
         }
-        if (piece === 'n') {
-            return this.getKnightMoves()
-        }
-        if (piece === 'k') {
-            return this.getKingMoves()
-        }
 
+        let limit = 8
+        if (piece[1] === 'n' || 'k') limit = 2
         let moves: number[][] = []
-
-        for (let dir of pieceDirs[piece]) {
-            const movesInDir = this.getMovesInDir(dir, [X, Y])
+        for (let dir of pieceDirs[piece[1]]) {
+            const movesInDir = this.getMovesInDir(dir, [X, Y], limit)
             moves = [...moves, ...movesInDir]
         }
 
