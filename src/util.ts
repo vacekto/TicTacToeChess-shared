@@ -21,7 +21,7 @@ export const initTicTacToeState = (): ITicTacToeState => {
     return {
         board: initTicTacToeBoard(12),
         winCondition: 5,
-        currentlyPlaying: 'O',
+        activePlayer: 'O',
         score: {
             X: 0,
             O: 0,
@@ -47,7 +47,7 @@ export const initUTicTacToeState = (): IUTicTacToeState => {
         board: initUTicTacToeBoard(),
         segmentBoard: initTicTacToeBoard(3),
         activeSegment: null,
-        currentlyPlaying: 'O',
+        activePlayer: 'O',
         score: {
             X: 0,
             O: 0,
