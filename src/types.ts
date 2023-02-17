@@ -1,4 +1,6 @@
-export type TGameName = 'TicTacToe' | 'UTicTacToe' | 'Chess'
+import { ChessGame } from "./gameLogic/chess"
+
+export type TGameName = 'ticTacToe' | 'uTicTacToe' | 'chess'
 export type TTicTacToeBoard = (TTicTacToeSide | null | 'draw')[][]
 export type TUTicTacToeBoard = (TTicTacToeBoard)[][]
 export type TTicTacToeSide = 'X' | 'O'
@@ -8,7 +10,7 @@ export type TChessPiece =
     | 'wk' | 'wq' | 'wr' | 'wb' | 'wn' | 'wp'
     | 'ee'
 export type TChessBoard = TChessPiece[][]
-
+export type TGameInstance = ChessGame
 
 export interface ITicTacToeState {
     board: TTicTacToeBoard,

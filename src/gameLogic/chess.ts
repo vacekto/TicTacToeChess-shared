@@ -7,8 +7,7 @@ type TKnightDir = (COORD: [number, number]) => [number, number]
 type TDir = TLinearDir | TKnightDir
 
 type TInitChessState = (
-    topSidePlayer: TChessSide,
-    startingSide: TChessSide
+    topSidePlayer?: TChessSide,
 ) => IChessState
 
 interface IPieceDirs {
@@ -46,24 +45,37 @@ const pieceDirs: IPieceDirs = {
     r: orthogonal,
     b: diagonal,
     n: knight,
+    p: []
 }
 
 export class ChessGame {
-    board: TChessBoard
-    topSidePlayer: TChessSide
-    activePlayer: TChessSide
-    kingPos: {
+    private board: TChessBoard
+    private topSidePlayer: TChessSide
+    private activePlayer: TChessSide
+    private kings: {
         w: [number, number]
         b: [number, number]
     }
-    winner: TChessSide | null | 'stalemate'
+    private winner: TChessSide | null | 'stalemate'
 
-    constructor(topSidePlayer: TChessSide, startingSide: TChessSide) {
+
+    get state() {
+        return structuredClone({
+            board: this.board,
+            topSidePlayer: this.topSidePlayer,
+            activePlayer: this.activePlayer,
+            kings: this.kings,
+            winner: this.winner
+        })
+    }
+
+
+    constructor(topSidePlayer: TChessSide = 'black') {
         const [w, b] = topSidePlayer === 'black' ? [0, 7] : [7, 0]
         this.board = initChessBoard(topSidePlayer)
-        this.activePlayer = startingSide
+        this.activePlayer = 'white'
         this.topSidePlayer = topSidePlayer
-        this.kingPos = { w: [w, 4], b: [b, 4] }
+        this.kings = { w: [w, 4], b: [b, 4] }
         this.winner = null
     }
 
@@ -82,6 +94,8 @@ export class ChessGame {
 
 
     private isKingEndangered() {
+        const AP = this.activePlayer[0] as 'w' | 'b'
+        const [X, Y] = this.kings[AP]
 
     }
 
@@ -111,23 +125,21 @@ export class ChessGame {
 
 
     private getPawnMoves([X, Y]: [number, number]) {
+        const moves: [number, number][] = []
         const [board, piece, topSide] = [
             this.board,
             this.board[X][Y],
             this.topSidePlayer
         ]
-
-        if (piece[1] !== 'p') return []
-
-        const moves: [number, number][] = []
         const i = piece[0] === topSide[0] ? 1 : -1
+        if (piece[1] !== 'p') return []
 
         if (board[X + i][Y] === 'ee') {
             this.addMoveIfLegal([X + i, Y], moves)
         }
 
         /* is shorter always??
-
+    
         [Y + i, Y - i].forEach((column) => {
             if (!isOutOfBounds([X + i, column])
                 && board[X + i][column][0] !== piece[0]
@@ -157,7 +169,6 @@ export class ChessGame {
     }
 
 
-
     /*private getKnightMoves([X, Y]: [number, number]) {
         let moves: [number, number][] = []
         if (isOutOfBounds([X, Y])) moves
@@ -180,24 +191,35 @@ export class ChessGame {
         const piece = this.board[X][Y]
 
         if (piece[1] === 'p') {
-            return this.getPawnMoves([X, Y])
+            const moves = structuredClone(this.getPawnMoves([X, Y]))
+            return moves as [number, number][]
         }
 
         let limit = 8
-        if (piece[1] === 'n' || 'k') limit = 2
+        if (piece[1] === 'n' || piece[1] === 'k') limit = 2
         let moves: number[][] = []
         for (let dir of pieceDirs[piece[1]]) {
             const movesInDir = this.getMovesInDir(dir, [X, Y], limit)
             moves = [...moves, ...movesInDir]
         }
 
-        return moves
-
+        return structuredClone(moves) as [number, number][]
     }
 
-    move(from: [number, number], to: [number, number]) {
-        //get potential moves(COORD)
-        //move
+    move([X, Y]: [number, number], [A, B]: [number, number]) {
+        const originPiece = this.board[X][Y]
+        if (originPiece[0] !== this.activePlayer[0]) return
+        this.board[A][B] = this.board[X][Y]
+        this.board[X][Y] = 'ee'
+        this.activePlayer = this.activePlayer === 'black' ? 'white' : 'black'
+    }
+
+    resetState() {
+        this.board = initChessBoard('black')
+        this.activePlayer = 'white'
+        this.topSidePlayer = 'black'
+        this.kings = { w: [7, 4], b: [0, 4] }
+        this.winner = null
     }
 
 }
@@ -237,17 +259,3 @@ export const initChessBoard = (topSidePlayer: TChessSide) => {
 
     return board
 }
-
-export const initChessState: TInitChessState = (
-    topSidePlayer, startingSide
-) => {
-    const [w, b] = topSidePlayer === 'black' ? [7, 0] : [0, 7]
-    return {
-        board: initChessBoard(topSidePlayer),
-        topSidePlayer,
-        activePlayer: startingSide,
-        kingsPos: { w: [w, 4], b: [b, 4] },
-        winner: null
-    }
-}
-
