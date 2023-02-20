@@ -33,47 +33,45 @@ const pieceDirs: IPieceDirs = {
     r: orthogonal,
     b: diagonal,
     n: knight,
-    p: []
+    p: [],
+    e: []
 }
 
 export class ChessGame {
     private board: TChessBoard
     private topSidePlayer: TChessSide
     private activePlayer: TChessSide
-    private kingsPos: {
+    private kingsCoord: {
         w: [number, number]
         b: [number, number]
     }
     private winner: TChessSide | null | 'stalemate'
-
 
     get state() {
         return structuredClone({
             board: this.board,
             topSidePlayer: this.topSidePlayer,
             activePlayer: this.activePlayer,
-            kingsPos: this.kingsPos,
+            kingsCoord: this.kingsCoord,
             winner: this.winner
-        })
+        }) as IChessState
     }
-
 
     constructor(topSidePlayer: TChessSide = 'black') {
         const [w, b] = topSidePlayer === 'black' ? [7, 0] : [0, 7]
         this.board = initChessBoard(topSidePlayer)
         this.activePlayer = 'white'
         this.topSidePlayer = topSidePlayer
-        this.kingsPos = { w: [w, 4], b: [b, 4] }
+        this.kingsCoord = { w: [w, 4], b: [b, 4] }
         this.winner = null
     }
 
-    private getPotentialMoves([X, Y]: [number, number]) {
+    getPotentialMoves([X, Y]: [number, number]) {
         if (this.isOutOfBounds([X, Y])) return []
         const piece = this.board[X][Y]
 
-        if (piece[1] === 'p') {
-            return this.getPawnMoves([X, Y])
-        }
+        if (piece[1] === 'e') return []
+        if (piece[1] === 'p') return this.getPawnMoves([X, Y])
 
         let limit = 8
         let moves: [number, number][] = []
@@ -87,15 +85,15 @@ export class ChessGame {
     }
 
     getLegalMoves([X, Y]: [number, number]) {
-        if (this.isOutOfBounds([X, Y]) || this.board[X][Y] === 'ee') {
-            return []
-        }
+        if (this.isOutOfBounds([X, Y])) return []
+        const [piece, AP] = [this.board[X][Y], this.activePlayer]
+        if (piece[0] !== AP[0]) return []
+
         let moves = this.getPotentialMoves([X, Y])
-        const piece = this.board[X][Y]
         for (let [A, B] of moves) {
             const save = this.board[A][B]
             this.move([X, Y], [A, B], false)
-            if (this.isKingEndangered(piece[0] as 'w' | 'b')) {
+            if (this.isKingEndangered(piece[0] as ('w' | 'b'))) {
                 moves = moves.filter(coord => {
                     return (coord[0] !== A || B !== coord[1])
                 })
@@ -108,7 +106,7 @@ export class ChessGame {
     }
 
     isKingEndangered(side: 'w' | 'b') {
-        const [A, B] = this.kingsPos[side]
+        const [A, B] = this.kingsCoord[side]
         let moves: [number, number][]
         const enemy = side === 'w' ? 'b' : 'w'
         for (const [X, row] of Object.entries(this.board)) {
@@ -127,19 +125,19 @@ export class ChessGame {
     move(moveFrom: [number, number], moveTo: [number, number], toggleActivePlayer: boolean = true) {
         const [X, Y] = moveFrom
         const [A, B] = moveTo
-        if (this.board[X][Y][0] !== this.activePlayer[0]) return
-        this.board[A][B] = this.board[X][Y]
+        const [piece, AP] = [this.board[X][Y], this.activePlayer]
+        this.board[A][B] = piece
         this.board[X][Y] = 'ee'
-        if (toggleActivePlayer) {
-            this.toggleActivePlayer()
-        }
+        if (piece[1] === 'k') this.kingsCoord[piece[0] as ('w' | 'b')] = [A, B]
+        if (toggleActivePlayer) this.toggleActivePlayer()
+
     }
 
     resetState() {
         this.board = initChessBoard('black')
         this.activePlayer = 'white'
         this.topSidePlayer = 'black'
-        this.kingsPos = { w: [7, 4], b: [0, 4] }
+        this.kingsCoord = { w: [7, 4], b: [0, 4] }
         this.winner = null
     }
 
@@ -152,6 +150,7 @@ export class ChessGame {
                 }
             }
         }
+
         this.topSidePlayer = this.topSidePlayer === 'black' ? 'white' : 'black'
         this.board = copy
     }
@@ -170,7 +169,8 @@ export class ChessGame {
 
         for (let i = 1; i < limit; i++) {
             const [A, B] = moveInDir([X, Y], i)
-            if (this.isOutOfBounds([A, B]) || board[A][B][0] === piece[0]) break
+            if (this.isOutOfBounds([A, B])) break
+            if (board[A][B][0] === piece[0]) break
             moves.push([A, B])
             if (board[A][B] !== 'ee') break
         }
@@ -187,9 +187,14 @@ export class ChessGame {
         ]
         const i = piece[0] === topSide[0] ? 1 : -1
         if (piece[1] !== 'p') return []
+        try {
 
-        if (board[X + i][Y] === 'ee') {
-            moves.push([X + i, Y])
+            if (board[X + i][Y] === 'ee') {
+                moves.push([X + i, Y])
+            }
+        } catch (err) {
+            console.error('error! coord: ', X, Y)
+            throw err
         }
 
         if (!this.isOutOfBounds([X + i, Y + 1])

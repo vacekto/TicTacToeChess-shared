@@ -41,7 +41,7 @@ export interface IChessState {
     board: TChessBoard,
     topSidePlayer: TChessSide,
     activePlayer: TChessSide,
-    kingsPos: {
+    kingsCoord: {
         w: [number, number],
         b: [number, number]
     },
