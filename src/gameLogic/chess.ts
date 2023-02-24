@@ -73,6 +73,7 @@ export class ChessGame {
         this.winner = null
     }
 
+
     getLegalMoves([X, Y]: [number, number]) {
         if (this.isOutOfBounds([X, Y])) return []
         const AP = this.activePlayer
@@ -95,7 +96,7 @@ export class ChessGame {
         }
 
         if (piece[1] === 'k')
-            this.checkForCastling(AP[0] as 'w' | 'b', moves)
+            this.checkForCastling(piece[0] as 'w' | 'b', moves)
 
         return moves
     }
@@ -163,6 +164,9 @@ export class ChessGame {
         if (piece[1] === 'k' && Y - B === -2) castling = 'right'
         this.history.push({ from, to, piece, castling })
         this.activePlayer = this.activePlayer === 'black' ? 'white' : 'black'
+        if (piece[1] === 'k' || piece[1] === 'r') {
+            this.castling[piece[0] as 'w' | 'b'] = false
+        }
         this.checkForWinner()
         if (this.winner) console.log(this.winner)
     }
@@ -174,11 +178,9 @@ export class ChessGame {
         this.board[A][B] = piece
         this.board[X][Y] = 'ee'
         if (piece[1] === 'k') {
-            this.castling[piece[0] as 'w' | 'b'] = false
             this.kingsCoord[piece[0] as ('w' | 'b')] = [A, B]
             if (X === A) {
                 if (Y - B === -2) this._move([X, 7], [X, 5])
-
                 if (Y - B === 2) this._move([X, 0], [X, 3])
             }
         }
@@ -194,7 +196,9 @@ export class ChessGame {
             this.board[rowIndex][6] === 'ee' &&
             !this.isPosEndangered([rowIndex, 5]) &&
             !this.isPosEndangered([rowIndex, 6])
-        ) list.push([rowIndex, 6])
+        )
+            list.push([rowIndex, 6])
+
 
 
         if (
