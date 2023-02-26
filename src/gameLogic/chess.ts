@@ -45,10 +45,6 @@ export class ChessGame {
         moves: IChessMove[]
         currentIndex: number
     }
-    private kingsCoord: {
-        w: [number, number]
-        b: [number, number]
-    }
     private castling: {
         w: boolean
         b: boolean
@@ -56,11 +52,15 @@ export class ChessGame {
     private winner: TChessSide | null | 'stalemate'
 
     get state() {
+        const kingsCoord = {
+            w: this.getKingCoord('w'),
+            b: this.getKingCoord('b')
+        }
         return structuredClone({
             board: this.board,
             topSidePlayer: this.topSidePlayer,
             activePlayer: this.activePlayer,
-            kingsCoord: this.kingsCoord,
+            kingsCoord,
             winner: this.winner
         }) as IChessState
     }
@@ -76,7 +76,6 @@ export class ChessGame {
             }],
             currentIndex: 0
         }
-        this.kingsCoord = { w: [w, 4], b: [b, 4] }
         this.castling = { w: true, b: true }
         this.winner = null
     }
@@ -89,9 +88,9 @@ export class ChessGame {
         if (piece[0] !== AP[0]) return []
 
         let moves = this.getPotentialMoves([X, Y])
+        const save = this.encodeBoard()
 
         for (let [A, B] of moves) {
-            const save = this.encodeBoard()
             this._move([X, Y], [A, B])
 
             if (this.isCheck()) {
@@ -99,6 +98,7 @@ export class ChessGame {
                     return (coord[0] !== A || B !== coord[1])
                 })
             }
+
             this.board = this.decodeBoard(save)
         }
 
@@ -112,7 +112,6 @@ export class ChessGame {
         this.board = initChessBoard('black')
         this.activePlayer = 'white'
         this.topSidePlayer = 'black'
-        this.kingsCoord = { w: [7, 4], b: [0, 4] }
         this.winner = null
     }
 
@@ -144,7 +143,7 @@ export class ChessGame {
 
     isCheck() {
         const side = this.activePlayer[0] as 'w' | 'b'
-        const kingCoord = this.kingsCoord[side]
+        const kingCoord = this.getKingCoord(side) as [number, number]
         return this.isPosEndangered(kingCoord)
     }
 
@@ -274,10 +273,18 @@ export class ChessGame {
 
         this.board[X][Y] = 'ee'
         if (piece[1] === 'k') {
-            this.kingsCoord[piece[0] as ('w' | 'b')] = [A, B]
             if (X === A) {
                 if (Y - B === -2) this._move([X, 7], [X, 5])
                 if (Y - B === 2) this._move([X, 0], [X, 3])
+            }
+        }
+    }
+
+    getKingCoord(side: 'w' | 'b') {
+        for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+                if (this.board[i][j] === `${side}k`)
+                    return [i, j]
             }
         }
     }
