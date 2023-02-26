@@ -13,10 +13,9 @@ export type TChessBoard = TChessPiece[][]
 export type TGameInstance = ChessGame
 
 export interface IChessMove {
-    piece: TChessPiece
-    from: [number, number]
-    to: [number, number],
-    castling: 'left' | 'right' | null
+    encodedBoard: string
+    from?: [number, number]
+    to?: [number, number]
 }
 
 export interface ITicTacToeState {

@@ -41,7 +41,10 @@ export class ChessGame {
     private board: TChessBoard
     private topSidePlayer: TChessSide
     private activePlayer: TChessSide
-    private history: IChessMove[]
+    private history: {
+        moves: IChessMove[]
+        currentIndex: number
+    }
     private kingsCoord: {
         w: [number, number]
         b: [number, number]
@@ -67,7 +70,12 @@ export class ChessGame {
         this.board = initChessBoard(topSidePlayer)
         this.activePlayer = 'white'
         this.topSidePlayer = topSidePlayer
-        this.history = []
+        this.history = {
+            moves: [{
+                encodedBoard: this.encodeBoard()
+            }],
+            currentIndex: 0
+        }
         this.kingsCoord = { w: [w, 4], b: [b, 4] }
         this.castling = { w: true, b: true }
         this.winner = null
@@ -83,7 +91,7 @@ export class ChessGame {
         let moves = this.getPotentialMoves([X, Y])
 
         for (let [A, B] of moves) {
-            const save = this.board[A][B]
+            const save = this.encodeBoard()
             this._move([X, Y], [A, B])
 
             if (this.isCheck()) {
@@ -91,8 +99,7 @@ export class ChessGame {
                     return (coord[0] !== A || B !== coord[1])
                 })
             }
-            this._move([A, B], [X, Y])
-            this.board[A][B] = save
+            this.board = this.decodeBoard(save)
         }
 
         if (piece[1] === 'k')
@@ -158,24 +165,113 @@ export class ChessGame {
         const [A, B] = to
         const [piece, AP] = [this.board[X][Y], this.activePlayer]
         if (piece[0] !== AP[0]) return
+
         this._move(from, to)
-        let castling: (null | 'right' | 'left') = null
-        if (piece[1] === 'k' && Y - B === 2) castling = 'left'
-        if (piece[1] === 'k' && Y - B === -2) castling = 'right'
-        this.history.push({ from, to, piece, castling })
+
         this.activePlayer = this.activePlayer === 'black' ? 'white' : 'black'
-        if (piece[1] === 'k' || piece[1] === 'r') {
+        this.history.moves.push({ encodedBoard: this.encodeBoard(), from, to })
+        this.history.currentIndex += 1
+        if (piece[1] === 'k' || piece[1] === 'r')
             this.castling[piece[0] as 'w' | 'b'] = false
-        }
+
         this.checkForWinner()
         if (this.winner) console.log(this.winner)
     }
+
+    private encodeBoard() {
+        let encodedBoard = ''
+        this.board.forEach(row => row.forEach(piece => {
+            encodedBoard += piece + '/'
+        }))
+        return encodedBoard
+    }
+
+    private decodeBoard(encodedBoard: string) {
+        const pieces = encodedBoard.split('/', 64)
+        const board = new Array(8).fill(null)
+            .map(() => new Array(8).fill(null))
+
+        pieces.forEach((piece, pieceIndex) => {
+            const row = Math.floor(pieceIndex / 8)
+            const column = pieceIndex % 8
+            board[row][column] = piece
+        })
+        return board
+    }
+
+    forward() {
+        const [moves, index] = [
+            this.history.moves,
+            this.history.currentIndex
+        ]
+
+        if (index + 1 === moves.length) return
+
+        const decodedBoard = this.decodeBoard(
+            moves[index + 1].encodedBoard
+        )
+
+        this.board = decodedBoard
+        this.history.currentIndex += 1
+    }
+
+    backward() {
+        const [moves, index] = [
+            this.history.moves,
+            this.history.currentIndex
+        ]
+
+        if (index === 0) return
+
+        const decodedBoard = this.decodeBoard(
+            moves[index - 1].encodedBoard
+        )
+
+        this.board = decodedBoard
+        this.history.currentIndex -= 1
+    }
+
+
+    fastForward() {
+        const moves = this.history.moves
+        const decodedBoard = this.decodeBoard(
+            moves.at(-1)!.encodedBoard
+        )
+        this.board = decodedBoard
+        this.history.currentIndex = moves.length - 1
+    }
+
+    fastBackward() {
+        const moves = this.history.moves
+        const decodeBoard = this.decodeBoard(
+            moves[0].encodedBoard
+        )
+        this.board = decodeBoard
+        this.history.currentIndex = 0
+    }
+
 
     private _move(from: [number, number], to: [number, number]) {
         const [X, Y] = from
         const [A, B] = to
         const piece = this.board[X][Y]
+
+        if (piece[1] === 'p') {
+            if (
+                Y + 1 === B &&
+                this.board[A][B] === 'ee'
+            )
+                this.board[X][Y + 1] = 'ee'
+
+            if (
+                Y - 1 === B &&
+                this.board[A][B] === 'ee'
+            )
+                this.board[X][Y - 1] = 'ee'
+        }
+
         this.board[A][B] = piece
+
         this.board[X][Y] = 'ee'
         if (piece[1] === 'k') {
             this.kingsCoord[piece[0] as ('w' | 'b')] = [A, B]
@@ -234,6 +330,7 @@ export class ChessGame {
             moves = [...moves, ...movesInDir]
         }
 
+
         return moves
     }
 
@@ -284,22 +381,20 @@ export class ChessGame {
             this.topSidePlayer
         ]
         const i = piece[0] === topSide[0] ? 1 : -1
+        const enemy = piece[0] === 'w' ? 'b' : 'w'
         if (piece[1] !== 'p') return []
-
 
         if (board[X + i][Y] === 'ee') moves.push([X + i, Y])
 
         if (
             !this.isOutOfBounds([X + i, Y + 1]) &&
-            board[X + i][Y + 1][0] !== piece[0] &&
-            board[X + i][Y + 1] !== 'ee'
+            board[X + i][Y + 1][0] === enemy
         )
             moves.push([X + i, Y + 1])
 
         if (
             !this.isOutOfBounds([X + i, Y - 1]) &&
-            board[X + i][Y - 1][0] !== piece[0] &&
-            board[X + i][Y - 1] !== 'ee'
+            board[X + i][Y - 1][0] === enemy
         )
             moves.push([X + i, Y - 1])
 
@@ -310,6 +405,27 @@ export class ChessGame {
             board[X + i + i][Y] === 'ee'
         )
             moves.push([X + i + i, Y])
+
+
+        if (this.history.currentIndex === 0) return moves
+
+        const lastMove = this.history.moves.at(-1)!
+        const [A, B] = [lastMove.to![0], lastMove.to![1]]
+        const C = lastMove.from![0]
+
+        if (
+            this.board[A][B] === `${enemy}p` &&
+            A === X && B === Y + 1 &&
+            Math.abs(A - C) === 2
+        )
+            moves.push([X + i, Y + 1])
+
+        if (
+            this.board[A][B] === `${enemy}p` &&
+            A === X && B === Y - 1 &&
+            Math.abs(A - C) === 2
+        )
+            moves.push([X + i, Y - 1])
 
 
         return moves
