@@ -1,16 +1,20 @@
 import { ChessGame } from "./gameLogic/chess"
+import { TicTacToeGame } from './gameLogic/ticTacToe'
+import { UTicTacToeGame } from "./gameLogic/uTicTacToe"
 
 export type TGameName = 'ticTacToe' | 'uTicTacToe' | 'chess'
-export type TTicTacToeBoard = (TTicTacToeSide | null | 'draw')[][]
-export type TUTicTacToeBoard = (TTicTacToeBoard)[][]
+export type TTicTacToeBoard = (TTicTacToeSide | null)[][]
 export type TTicTacToeSide = 'X' | 'O'
-export type TChessSide = 'white' | 'black'
+export type TChessSide = 'w' | 'b'
 export type TChessPiece =
     | 'bk' | 'bq' | 'br' | 'bb' | 'bn' | 'bp'
     | 'wk' | 'wq' | 'wr' | 'wb' | 'wn' | 'wp'
     | 'ee'
 export type TChessBoard = TChessPiece[][]
-export type TGameInstance = ChessGame
+export type TGameInstance = ChessGame | TicTacToeGame | UTicTacToeGame
+export type TPlayerSide = TChessSide | TTicTacToeSide
+export type TGameSide = TChessSide | TTicTacToeSide
+
 
 export interface IChessMove {
     encodedBoard: string
@@ -19,37 +23,30 @@ export interface IChessMove {
 }
 
 export interface ITicTacToeState {
-    board: TTicTacToeBoard,
-    winCondition: number,
-    activePlayer: TTicTacToeSide,
-    score: {
-        X: number
-        O: number
-        draw: number
-    },
-    winner: TTicTacToeSide | 'draw' | null
+    board: ('X' | 'O' | null)[][],
+    activePlayer: 'X' | 'O',
+    winner: 'X' | 'O' | null | 'draw'
+    winSegments: [[number, number], [number, number]][]
 }
 
 export interface IUTicTacToeState {
-    board: TUTicTacToeBoard,
-    segmentBoard: (TTicTacToeSide | 'draw' | null)[][],
+    board: ('X' | 'O' | null)[][][][],
+    segmentBoard: ('X' | 'O' | 'draw' | null)[][],
     activeSegment: [number, number] | null
-    activePlayer: TTicTacToeSide,
-    score: {
-        X: number
-        O: number
-        draw: number
-    },
-    winner: TTicTacToeSide | 'draw' | null
+    activePlayer: 'X' | 'O',
+    winner: 'X' | 'O' | 'draw' | null
 }
 
 export interface IChessState {
     board: TChessBoard,
-    topSidePlayer: TChessSide,
     activePlayer: TChessSide,
-    kingsCoord: {
-        w: [number, number],
-        b: [number, number]
-    },
-    winner: TTicTacToeSide | 'draw' | null
+    winner: 'X' | 'O' | 'stalemate' | null
+    figuresTaken: {
+        w: TChessPiece[]
+        b: TChessPiece[]
+    }
+    history: {
+        moves: IChessMove[],
+        currentIndex: number
+    }
 }

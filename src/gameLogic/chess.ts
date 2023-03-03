@@ -1,46 +1,17 @@
-import { IChessState, TChessBoard, TChessSide, IChessMove } from "../types"
+import { IChessState, TChessBoard, TChessSide, IChessMove, TChessPiece } from "../types"
 
 type TDir = (COORD: [number, number], i: number) => [number, number]
 interface IPieceDirs {
     [key: string]: TDir[],
 }
-const diagonal: TDir[] = [
-    ([X, Y], i) => [X + i, Y + i],
-    ([X, Y], i) => [X + i, Y - i],
-    ([X, Y], i) => [X - i, Y + i],
-    ([X, Y], i) => [X - i, Y - i],
-]
-const orthogonal: TDir[] = [
-    ([X, Y], i) => [X + i, Y],
-    ([X, Y], i) => [X - i, Y],
-    ([X, Y], i) => [X, Y + i],
-    ([X, Y], i) => [X, Y - i],
-]
-const knight: TDir[] = [
-    ([X, Y], i) => [X - 2 * i, Y + 1 * i],
-    ([X, Y], i) => [X - 2 * i, Y - 1 * i],
-    ([X, Y], i) => [X + 1 * i, Y + 2 * i],
-    ([X, Y], i) => [X - 1 * i, Y + 2 * i],
-    ([X, Y], i) => [X + 2 * i, Y + 1 * i],
-    ([X, Y], i) => [X + 2 * i, Y - 1 * i],
-    ([X, Y], i) => [X + 1 * i, Y - 2 * i],
-    ([X, Y], i) => [X - 1 * i, Y - 2 * i],
-]
-
-const pieceDirs: IPieceDirs = {
-    k: [...diagonal, ...orthogonal],
-    q: [...diagonal, ...orthogonal],
-    r: orthogonal,
-    b: diagonal,
-    n: knight,
-    p: [],
-    e: []
-}
 
 export class ChessGame {
     private board: TChessBoard
-    private topSidePlayer: TChessSide
     private activePlayer: TChessSide
+    private figuresTaken: {
+        w: TChessPiece[]
+        b: TChessPiece[]
+    }
     private history: {
         moves: IChessMove[]
         currentIndex: number
@@ -52,29 +23,27 @@ export class ChessGame {
     private winner: TChessSide | null | 'stalemate'
 
     get state() {
-        const kingsCoord = {
-            w: this.getKingCoord('w'),
-            b: this.getKingCoord('b')
-        }
         return structuredClone({
             board: this.board,
-            topSidePlayer: this.topSidePlayer,
             activePlayer: this.activePlayer,
-            kingsCoord,
-            winner: this.winner
+            winner: this.winner,
+            figuresTaken: this.figuresTaken,
+            history: this.history
         }) as IChessState
     }
 
-    constructor(topSidePlayer: TChessSide = 'black') {
-        const [w, b] = topSidePlayer === 'black' ? [7, 0] : [0, 7]
-        this.board = initChessBoard(topSidePlayer)
-        this.activePlayer = 'white'
-        this.topSidePlayer = topSidePlayer
+    constructor() {
+        this.board = this.createBoard()
+        this.activePlayer = 'w'
         this.history = {
             moves: [{
                 encodedBoard: this.encodeBoard()
             }],
             currentIndex: 0
+        }
+        this.figuresTaken = {
+            w: [],
+            b: []
         }
         this.castling = { w: true, b: true }
         this.winner = null
@@ -108,94 +77,58 @@ export class ChessGame {
         return moves
     }
 
-    resetState() {
-        this.board = initChessBoard('black')
-        this.activePlayer = 'white'
-        this.topSidePlayer = 'black'
-        this.winner = null
-    }
-
-    flip() {
-        const copy = new Array(7).fill(null)
-        for (let i = 0; i < 8; i++) {
-            for (let j = 0; j < 8; j++) {
-                if (this.board[i][j]) {
-                    copy[7 - i][j] = this.board[i][j]
-                }
-            }
-        }
-
-        this.topSidePlayer = this.topSidePlayer === 'black' ? 'white' : 'black'
-        this.board = copy
-    }
-
-    canPlayerMove(side: 'w' | 'b') {
-        for (let i = 0; i < 8; i++) {
-            for (let j = 0; j < 8; j++) {
-                if (this.board[i][j][0] === side) {
-                    const moves = this.getLegalMoves([i, j])
-                    if (moves[0]) return true
-                }
-            }
-        }
-        return false
-    }
-
-    isCheck() {
-        const side = this.activePlayer[0] as 'w' | 'b'
-        const kingCoord = this.getKingCoord(side) as [number, number]
-        return this.isPosEndangered(kingCoord)
-    }
-
-    checkForWinner() {
-        const side = this.activePlayer[0] as 'w' | 'b'
-        const hasLegalMoves = this.canPlayerMove(side)
-        if (hasLegalMoves) return
-        const check = this.isCheck()
-        if (check) this.winner = side === 'w' ? 'black' : 'white'
-        else this.winner = 'stalemate'
-    }
-
-
     move(from: [number, number], to: [number, number]) {
+
         if (this.isOutOfBounds(from)) return
         if (this.isOutOfBounds(to)) return
         const [X, Y] = from
         const [A, B] = to
         const [piece, AP] = [this.board[X][Y], this.activePlayer]
-        if (piece[0] !== AP[0]) return
+        const enemy = piece[0] === 'w' ? 'b' : 'w'
+        if (enemy == AP[0]) return
+
+        const square = this.board[A][B]
+
+        if (square !== 'ee') {
+            this.figuresTaken[enemy].push(square)
+        }
+
+        if (
+            piece[1] === 'p' &&
+            Y + 1 === B &&
+            this.board[A][B] === 'ee'
+        ) {
+            const pawnTaken = this.board[X][Y + 1]
+            this.figuresTaken[enemy].push(pawnTaken)
+            this.board[X][Y + 1] = 'ee'
+        }
+
+        if (
+            piece[1] === 'p' &&
+            Y - 1 === B &&
+            this.board[A][B] === 'ee'
+        ) {
+            const pawnTaken = this.board[X][Y - 1]
+            this.figuresTaken[enemy].push(pawnTaken)
+            this.board[X][Y - 1] = 'ee'
+        }
 
         this._move(from, to)
 
-        this.activePlayer = this.activePlayer === 'black' ? 'white' : 'black'
+
+        this.activePlayer = this.activePlayer === 'b' ? 'w' : 'b'
         this.history.moves.push({ encodedBoard: this.encodeBoard(), from, to })
         this.history.currentIndex += 1
         if (piece[1] === 'k' || piece[1] === 'r')
             this.castling[piece[0] as 'w' | 'b'] = false
 
         this.checkForWinner()
-        if (this.winner) console.log(this.winner)
     }
 
-    private encodeBoard() {
-        let encodedBoard = ''
-        this.board.forEach(row => row.forEach(piece => {
-            encodedBoard += piece + '/'
-        }))
-        return encodedBoard
-    }
-
-    private decodeBoard(encodedBoard: string) {
-        const pieces = encodedBoard.split('/', 64)
-        const board = new Array(8).fill(null)
-            .map(() => new Array(8).fill(null))
-
-        pieces.forEach((piece, pieceIndex) => {
-            const row = Math.floor(pieceIndex / 8)
-            const column = pieceIndex % 8
-            board[row][column] = piece
-        })
-        return board
+    resetState() {
+        this.board = this.createBoard()
+        this.activePlayer = 'w'
+        this.winner = null
     }
 
     forward() {
@@ -249,29 +182,76 @@ export class ChessGame {
         this.history.currentIndex = 0
     }
 
+    private canPlayerMove(side: 'w' | 'b') {
+        for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+                if (this.board[i][j][0] === side) {
+                    const moves = this.getLegalMoves([i, j])
+                    if (moves[0]) return true
+                }
+            }
+        }
+        return false
+    }
+
+    private isCheck() {
+        const side = this.activePlayer[0] as 'w' | 'b'
+        const kingCoord = this.getKingCoord(side) as [number, number]
+        return this.isPosEndangered(kingCoord)
+    }
+
+    private checkForWinner() {
+        const APSide = this.activePlayer[0] as 'w' | 'b'
+        const hasLegalMoves = this.canPlayerMove(APSide)
+        if (hasLegalMoves) return
+        const check = this.isCheck()
+        if (check) this.winner = APSide === 'w' ? 'b' : 'w'
+        else this.winner = 'stalemate'
+    }
+
+
+    private encodeBoard() {
+        let encodedBoard = ''
+        this.board.forEach(row => row.forEach(piece => {
+            encodedBoard += piece + '/'
+        }))
+        return encodedBoard
+    }
+
+    private decodeBoard(encodedBoard: string) {
+        const pieces = encodedBoard.split('/', 64)
+        const board = new Array(8).fill(null)
+            .map(() => new Array(8).fill(null))
+
+        pieces.forEach((piece, pieceIndex) => {
+            const row = Math.floor(pieceIndex / 8)
+            const column = pieceIndex % 8
+            board[row][column] = piece
+        })
+        return board
+    }
+
 
     private _move(from: [number, number], to: [number, number]) {
         const [X, Y] = from
         const [A, B] = to
         const piece = this.board[X][Y]
 
-        if (piece[1] === 'p') {
-            if (
-                Y + 1 === B &&
-                this.board[A][B] === 'ee'
-            )
-                this.board[X][Y + 1] = 'ee'
-
-            if (
-                Y - 1 === B &&
-                this.board[A][B] === 'ee'
-            )
-                this.board[X][Y - 1] = 'ee'
-        }
-
         this.board[A][B] = piece
-
         this.board[X][Y] = 'ee'
+
+        if (
+            piece === 'wp' &&
+            A === 0
+        )
+            this.board[A][B] = 'wq'
+
+        if (
+            piece === 'bp' &&
+            A === 7
+        )
+            this.board[A][B] = 'bq'
+
         if (piece[1] === 'k') {
             if (X === A) {
                 if (Y - B === -2) this._move([X, 7], [X, 5])
@@ -280,7 +260,7 @@ export class ChessGame {
         }
     }
 
-    getKingCoord(side: 'w' | 'b') {
+    private getKingCoord(side: 'w' | 'b') {
         for (let i = 0; i < 8; i++) {
             for (let j = 0; j < 8; j++) {
                 if (this.board[i][j] === `${side}k`)
@@ -292,17 +272,16 @@ export class ChessGame {
     private checkForCastling(side: 'w' | 'b', list: [number, number][]) {
         if (!this.castling[side]) return
         if (side !== this.activePlayer[0]) return
-        const rowIndex = this.topSidePlayer[0] === side ? 0 : 7
+        const rowIndex = 'b' === side ? 0 : 7
 
         if (
             this.board[rowIndex][5] === 'ee' &&
             this.board[rowIndex][6] === 'ee' &&
+            !this.isPosEndangered([rowIndex, 4]) &&
             !this.isPosEndangered([rowIndex, 5]) &&
             !this.isPosEndangered([rowIndex, 6])
         )
             list.push([rowIndex, 6])
-
-
 
         if (
             this.board[rowIndex][1] === 'ee' &&
@@ -310,7 +289,8 @@ export class ChessGame {
             this.board[rowIndex][3] === 'ee' &&
             !this.isPosEndangered([rowIndex, 1]) &&
             !this.isPosEndangered([rowIndex, 2]) &&
-            !this.isPosEndangered([rowIndex, 3])
+            !this.isPosEndangered([rowIndex, 3]) &&
+            !this.isPosEndangered([rowIndex, 4])
         )
             list.push([rowIndex, 2])
 
@@ -332,7 +312,7 @@ export class ChessGame {
         )
             limit = 2
 
-        for (let dir of pieceDirs[piece[1]]) {
+        for (let dir of this.pieceDirs[piece[1]]) {
             const movesInDir = this.getMovesInDir(dir, [X, Y], limit)
             moves = [...moves, ...movesInDir]
         }
@@ -382,16 +362,18 @@ export class ChessGame {
 
     private getPawnMoves([X, Y]: [number, number]) {
         const moves: [number, number][] = []
-        const [board, piece, topSide] = [
+        const [board, piece] = [
             this.board,
             this.board[X][Y],
-            this.topSidePlayer
         ]
-        const i = piece[0] === topSide[0] ? 1 : -1
-        const enemy = piece[0] === 'w' ? 'b' : 'w'
         if (piece[1] !== 'p') return []
+        const i = piece[0] === 'b' ? 1 : -1
+        const enemy = piece[0] === 'w' ? 'b' : 'w'
 
-        if (board[X + i][Y] === 'ee') moves.push([X + i, Y])
+        if (!this.isOutOfBounds([X + i, Y]) &&
+            board[X + i][Y] === 'ee'
+        )
+            moves.push([X + i, Y])
 
         if (
             !this.isOutOfBounds([X + i, Y + 1]) &&
@@ -407,7 +389,8 @@ export class ChessGame {
 
 
         if (
-            [1, 6].includes(X) &&
+            ((piece[0] === 'w' && X === 6) ||
+                (piece[0] === 'b' && X === 1)) &&
             board[X + i][Y] === 'ee' &&
             board[X + i + i][Y] === 'ee'
         )
@@ -438,40 +421,65 @@ export class ChessGame {
         return moves
     }
 
-}
+    private createBoard() {
+        const board: TChessBoard = new Array(8).fill(null)
+            .map(() => new Array(8).fill('ee'))
 
-export const initChessBoard = (topSidePlayer: TChessSide) => {
-    const board: TChessBoard = [];
-    for (let i = 0; i < 8; i++) {
-        board[i] = []
-        for (let j = 0; j < 8; j++) {
-            board[i][j] = 'ee'
-        }
+
+        board[7][0] = 'wr'
+        board[7][1] = 'wn'
+        board[7][2] = 'wb'
+        board[7][3] = 'wq'
+        board[7][4] = 'wk'
+        board[7][5] = 'wb'
+        board[7][6] = 'wn'
+        board[7][7] = 'wr'
+        for (let k = 0; k < 8; k++) board[6][k] = 'wp'
+
+        board[0][0] = 'br'
+        board[0][1] = 'bn'
+        board[0][2] = 'bb'
+        board[0][3] = 'bq'
+        board[0][4] = 'bk'
+        board[0][5] = 'bb'
+        board[0][6] = 'bn'
+        board[0][7] = 'br'
+        for (let k = 0; k < 8; k++) board[1][k] = 'bp'
+
+        return board
     }
 
-    const [w, b] = topSidePlayer === 'black' ? [7, 0] : [0, 7]
-    const i = topSidePlayer === 'black' ? -1 : 1
+    private diagonal: TDir[] = [
+        ([X, Y], i) => [X + i, Y + i],
+        ([X, Y], i) => [X + i, Y - i],
+        ([X, Y], i) => [X - i, Y + i],
+        ([X, Y], i) => [X - i, Y - i],
+    ]
+    private orthogonal: TDir[] = [
+        ([X, Y], i) => [X + i, Y],
+        ([X, Y], i) => [X - i, Y],
+        ([X, Y], i) => [X, Y + i],
+        ([X, Y], i) => [X, Y - i],
+    ]
+    private knight: TDir[] = [
+        ([X, Y], i) => [X - 2 * i, Y + 1 * i],
+        ([X, Y], i) => [X - 2 * i, Y - 1 * i],
+        ([X, Y], i) => [X + 1 * i, Y + 2 * i],
+        ([X, Y], i) => [X - 1 * i, Y + 2 * i],
+        ([X, Y], i) => [X + 2 * i, Y + 1 * i],
+        ([X, Y], i) => [X + 2 * i, Y - 1 * i],
+        ([X, Y], i) => [X + 1 * i, Y - 2 * i],
+        ([X, Y], i) => [X - 1 * i, Y - 2 * i],
+    ]
 
+    private pieceDirs: IPieceDirs = {
+        k: [...this.diagonal, ...this.orthogonal],
+        q: [...this.diagonal, ...this.orthogonal],
+        r: this.orthogonal,
+        b: this.diagonal,
+        n: this.knight,
+        p: [],
+        e: []
+    }
 
-    board[w][0] = 'wr'
-    board[w][1] = 'wn'
-    board[w][2] = 'wb'
-    board[w][3] = 'wq'
-    board[w][4] = 'wk'
-    board[w][5] = 'wb'
-    board[w][6] = 'wn'
-    board[w][7] = 'wr'
-    for (let k = 0; k < 8; k++) board[w + i][k] = 'wp'
-
-    board[b][0] = 'br'
-    board[b][1] = 'bn'
-    board[b][2] = 'bb'
-    board[b][3] = 'bq'
-    board[b][4] = 'bk'
-    board[b][5] = 'bb'
-    board[b][6] = 'bn'
-    board[b][7] = 'br'
-    for (let k = 0; k < 8; k++) board[b - i][k] = 'bp'
-
-    return board
 }

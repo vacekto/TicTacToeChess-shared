@@ -1,90 +1,132 @@
 import {
+    ITicTacToeState,
     TTicTacToeBoard,
     TTicTacToeSide,
 } from '../types'
 
-type lineCOORD = [[number, number], [number, number]]
-
-interface ITicTacToeOutcome {
-    winner: TTicTacToeSide | 'draw' | null,
-    winSegments: lineCOORD[],
-}
 type TDir = (
     prevCOORD: [number, number]
 ) => [number, number]
 
 type TCheckDir = (
     dir: TDir,
-    board: TTicTacToeBoard,
     prevMove: [number, number],
     side: TTicTacToeSide
 ) => [number, number]
 
-type TCheckForWinnerTicTacToe = (
-    board: TTicTacToeBoard,
-    winCondition: number,
-    lastMove?: [number, number]
-) => ITicTacToeOutcome
 
-const dirs: TDir[][] = [
-    [([x, y]) => [x + 1, y], ([x, y]) => [x - 1, y]],
-    [([x, y]) => [x + 1, y + 1], ([x, y]) => [x - 1, y - 1]],
-    [([x, y]) => [x, y + 1], ([x, y]) => [x, y - 1]],
-    [([x, y]) => [x - 1, y + 1], ([x, y]) => [x + 1, y - 1]]
-]
-const isOutOfBounds = (moveCOORD: [number, number], size: number) => {
-    for (let COORD of moveCOORD) {
-        if (COORD < 0 || COORD >= size) return true
-    }
-    return false
-}
-const checkDir: TCheckDir = (dir, board, prevMove, side) => {
-    const [a, b] = dir(prevMove)
-    if (isOutOfBounds([a, b], board.length)) return prevMove
-    if (board[a][b] !== side) return prevMove
-    return checkDir(dir, board, [a, b], side)
-}
+export class TicTacToeGame {
+    private board: TTicTacToeBoard
+    private size: number
+    private winCondition: number
+    activePlayer: TTicTacToeSide
+    winner: TTicTacToeSide | null | 'draw'
+    winSegments: [[number, number], [number, number]][]
 
-export const checkForWinnerTicTacToe: TCheckForWinnerTicTacToe = (
-    board, winCondition, lastMove
-) => {
-    const size = board.length
-    let outcome: ITicTacToeOutcome = {
-        winner: null,
-        winSegments: []
+    constructor(size: number, winCondition: number, startingSide: TTicTacToeSide) {
+        this.board = this.initNewBoard(size)
+        this.size = size
+        this.winCondition = winCondition
+        this.activePlayer = startingSide
+        this.winner = null
+        this.winSegments = []
     }
 
-    if (!lastMove) {
-        let potentialOutcome: ITicTacToeOutcome
-        for (let i = 0; i < size; i++) {
-            for (let j = 0; j < size; j++) {
-                potentialOutcome = checkForWinnerTicTacToe(board, winCondition, [i, j])
-                if (outcome.winSegments.length < potentialOutcome.winSegments.length) {
-                    outcome = potentialOutcome
-                }
+    get state() {
+        return structuredClone({
+            board: this.board,
+            activePlayer: this.activePlayer,
+            winner: this.winner,
+            winSegments: this.winSegments
+        }) as ITicTacToeState
+    }
+
+    resetState() {
+        this.board = this.initNewBoard(this.size)
+        this.activePlayer = this.activePlayer === 'O' ? 'X' : 'O'
+        this.winner = null
+        this.winSegments = []
+    }
+
+    private dirs: TDir[][] = [
+        [([x, y]) => [x + 1, y], ([x, y]) => [x - 1, y]],
+        [([x, y]) => [x + 1, y + 1], ([x, y]) => [x - 1, y - 1]],
+        [([x, y]) => [x, y + 1], ([x, y]) => [x, y - 1]],
+        [([x, y]) => [x - 1, y + 1], ([x, y]) => [x + 1, y - 1]]
+    ]
+
+    private isOutOfBounds([A, B]: [number, number]) {
+        if (
+            A < 0 || A >= this.size ||
+            B < 0 || B >= this.size
+        )
+            return true
+        return false
+    }
+
+    private checkDir: TCheckDir = (dir, prevMove, side) => {
+        const [X, Y] = dir(prevMove)
+        if (this.isOutOfBounds([X, Y])) return prevMove
+        if (this.board[X][Y] !== side) return prevMove
+        return this.checkDir(dir, [X, Y], side)
+    }
+
+    private initNewBoard = (size: number) => {
+        return new Array(size).fill(null).map(_ => {
+            return new Array(size).fill(null)
+        })
+    }
+
+    move([X, Y]: [number, number], side: TTicTacToeSide = this.activePlayer) {
+        if (
+            this.isOutOfBounds([X, Y]) ||
+            this.winner
+        )
+            return
+
+        this.board[X][Y] = side
+        this.activePlayer = side === 'O' ? 'X' : 'O'
+        this.checkForWinner([X, Y])
+    }
+
+    private isDraw() {
+        for (let i = 0; i < this.size; i++) {
+            for (let j = 0; j < this.size; j++) {
+                if (!this.board[i][j]) return false
             }
         }
-        return outcome
+        return true
     }
 
-    const [X, Y] = lastMove
+    private checkForWinner(lastMove?: [number, number]) {
+        if (this.isDraw()) {
+            this.winner = 'draw'
+            return
+        }
+        if (!lastMove) {
+            for (let [row, rowIndex] of Object.entries(this.board)) {
+                for (let [square, squareIndex] of Object.entries(row)) {
+                    this.checkForWinner([+rowIndex, +squareIndex])
+                }
+            }
+            return
+        }
 
-    if (isOutOfBounds(lastMove, size)) {
-        console.error('ILLEGAL CHECK_FOR_WINNER INPUT!!')
-        return outcome
+        if (this.isOutOfBounds(lastMove)) return
+        const [X, Y] = lastMove
+
+        if (this.board[X][Y] === null) return
+
+        const player = this.board[X][Y] as TTicTacToeSide
+
+        this.dirs.forEach(dir => {
+            const [A, B] = this.checkDir(dir[0], [X, Y], player)
+            const [C, D] = this.checkDir(dir[1], [X, Y], player)
+            const sequenceLength = Math.max(Math.abs(A - C), Math.abs(B - D)) + 1
+            if (sequenceLength >= this.winCondition) {
+                this.winner = player
+                this.winSegments.push([[A, B], [C, D]])
+            }
+        })
     }
-    if (board[X][Y] === null || board[X][Y] === 'draw') return outcome
-
-    const player = board[X][Y] as TTicTacToeSide
-
-    dirs.forEach(dir => {
-        const [a, b] = checkDir(dir[0], board, lastMove, player)
-        const [c, d] = checkDir(dir[1], board, lastMove, player)
-        const sequence = Math.max(Math.abs(a - c), Math.abs(b - d)) + 1
-        if (sequence >= winCondition) outcome.winSegments.push([[a, b], [c, d]])
-    })
-
-    if (outcome.winSegments[0]) outcome.winner = player
-
-    return outcome
 }
