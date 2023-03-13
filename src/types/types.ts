@@ -1,6 +1,6 @@
-import { ChessGame } from "./gameLogic/chess"
-import { TicTacToeGame } from './gameLogic/ticTacToe'
-import { UTicTacToeGame } from "./gameLogic/uTicTacToe"
+import { ChessGame } from "../gameLogic/chess"
+import { TicTacToeGame } from '../gameLogic/ticTacToe'
+import { UTicTacToeGame } from "../gameLogic/uTicTacToe"
 
 export type TGameName = 'ticTacToe' | 'uTicTacToe' | 'chess'
 export type TTicTacToeBoard = (TTicTacToeSide | null)[][]
@@ -14,13 +14,35 @@ export type TChessBoard = TChessPiece[][]
 export type TGameInstance = ChessGame | TicTacToeGame | UTicTacToeGame
 export type TPlayerSide = TChessSide | TTicTacToeSide
 export type TGameSide = TChessSide | TTicTacToeSide
-
+export type TGameMode = 'hotseat' | 'multiplayer' | 'vsPC'
 
 export interface IChessMove {
-    encodedBoard: string
-    from?: [number, number]
-    to?: [number, number]
+    from: {
+        X: number
+        Y: number
+    }
+    to: {
+        X: number
+        Y: number
+    }
 }
+
+export interface IUTicTacToeMove {
+    X: number
+    Y: number
+    SX: number
+    SY: number
+}
+
+export interface ITicTacToeMove {
+    X: number
+    Y: number
+}
+
+export type TGameMove = (
+    move: IChessMove | ITicTacToeMove | IUTicTacToeMove,
+    side?: TTicTacToeSide
+) => void
 
 export interface ITicTacToeState {
     board: ('X' | 'O' | null)[][],

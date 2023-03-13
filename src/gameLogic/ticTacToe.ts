@@ -1,8 +1,10 @@
 import {
+    ITicTacToeMove,
     ITicTacToeState,
+    TGameMove,
     TTicTacToeBoard,
     TTicTacToeSide,
-} from '../types'
+} from '../types/types'
 
 type TDir = (
     prevCOORD: [number, number]
@@ -23,7 +25,7 @@ export class TicTacToeGame {
     winner: TTicTacToeSide | null | 'draw'
     winSegments: [[number, number], [number, number]][]
 
-    constructor(size: number, winCondition: number, startingSide: TTicTacToeSide) {
+    constructor(size: number = 10, winCondition: number = 5, startingSide: TTicTacToeSide = 'O') {
         this.board = this.initNewBoard(size)
         this.size = size
         this.winCondition = winCondition
@@ -77,7 +79,8 @@ export class TicTacToeGame {
         })
     }
 
-    move([X, Y]: [number, number], side: TTicTacToeSide = this.activePlayer) {
+    move: TGameMove = (move, side = this.activePlayer) => {
+        const { X, Y } = move as ITicTacToeMove
         if (
             this.isOutOfBounds([X, Y]) ||
             this.winner

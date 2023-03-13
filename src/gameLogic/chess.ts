@@ -1,8 +1,12 @@
-import { IChessState, TChessBoard, TChessSide, IChessMove, TChessPiece } from "../types"
+import { IChessState, TChessBoard, TChessSide, IChessMove, TChessPiece, TGameMove } from "../types/types"
 
 type TDir = (COORD: [number, number], i: number) => [number, number]
 interface IPieceDirs {
     [key: string]: TDir[],
+}
+
+interface IHistoryMove extends IChessMove {
+    encodedBoard: string
 }
 
 export class ChessGame {
@@ -13,7 +17,7 @@ export class ChessGame {
         b: TChessPiece[]
     }
     private history: {
-        moves: IChessMove[]
+        moves: IHistoryMove[]
         currentIndex: number
     }
     private castling: {
@@ -37,7 +41,9 @@ export class ChessGame {
         this.activePlayer = 'w'
         this.history = {
             moves: [{
-                encodedBoard: this.encodeBoard()
+                encodedBoard: this.encodeBoard(),
+                from: { X: -1, Y: -1 },
+                to: { X: -1, Y: -1 }
             }],
             currentIndex: 0
         }
@@ -77,15 +83,15 @@ export class ChessGame {
         return moves
     }
 
-    move(from: [number, number], to: [number, number]) {
-
-        if (this.isOutOfBounds(from)) return
-        if (this.isOutOfBounds(to)) return
-        const [X, Y] = from
-        const [A, B] = to
+    move: TGameMove = (move) => {
+        const { from, to } = move as IChessMove
+        const [X, Y] = [from.X, from.Y]
+        const [A, B] = [to.X, to.Y]
+        if (this.isOutOfBounds([X, Y])) return
+        if (this.isOutOfBounds([A, B])) return
         const [piece, AP] = [this.board[X][Y], this.activePlayer]
         const enemy = piece[0] === 'w' ? 'b' : 'w'
-        if (enemy == AP[0]) return
+        if (enemy === AP[0]) return
 
         const square = this.board[A][B]
 
@@ -113,11 +119,14 @@ export class ChessGame {
             this.board[X][Y - 1] = 'ee'
         }
 
-        this._move(from, to)
-
+        this._move([X, Y], [A, B])
 
         this.activePlayer = this.activePlayer === 'b' ? 'w' : 'b'
-        this.history.moves.push({ encodedBoard: this.encodeBoard(), from, to })
+        this.history.moves.push({
+            encodedBoard: this.encodeBoard(),
+            from,
+            to
+        })
         this.history.currentIndex += 1
         if (piece[1] === 'k' || piece[1] === 'r')
             this.castling[piece[0] as 'w' | 'b'] = false
@@ -210,7 +219,7 @@ export class ChessGame {
     }
 
 
-    private encodeBoard() {
+    encodeBoard() {
         let encodedBoard = ''
         this.board.forEach(row => row.forEach(piece => {
             encodedBoard += piece + '/'
@@ -218,7 +227,7 @@ export class ChessGame {
         return encodedBoard
     }
 
-    private decodeBoard(encodedBoard: string) {
+    decodeBoard(encodedBoard: string) {
         const pieces = encodedBoard.split('/', 64)
         const board = new Array(8).fill(null)
             .map(() => new Array(8).fill(null))
@@ -300,7 +309,7 @@ export class ChessGame {
     private getPotentialMoves([X, Y]: [number, number]) {
         if (this.isOutOfBounds([X, Y])) return []
         const piece = this.board[X][Y]
-        let limit = 8
+        let moveLimit = 8
         let moves: [number, number][] = []
 
         if (piece[1] === 'e') return []
@@ -310,10 +319,10 @@ export class ChessGame {
             piece[1] === 'n' ||
             piece[1] === 'k'
         )
-            limit = 2
+            moveLimit = 2
 
         for (let dir of this.pieceDirs[piece[1]]) {
-            const movesInDir = this.getMovesInDir(dir, [X, Y], limit)
+            const movesInDir = this.getMovesInDir(dir, [X, Y], moveLimit)
             moves = [...moves, ...movesInDir]
         }
 
@@ -400,8 +409,8 @@ export class ChessGame {
         if (this.history.currentIndex === 0) return moves
 
         const lastMove = this.history.moves.at(-1)!
-        const [A, B] = [lastMove.to![0], lastMove.to![1]]
-        const C = lastMove.from![0]
+        const [A, B] = [lastMove.to.X, lastMove.to.Y]
+        const C = lastMove.from.X
 
         if (
             this.board[A][B] === `${enemy}p` &&
