@@ -23,6 +23,14 @@ export interface IGameInvite {
     game: TGameName
 }
 
+export interface IHistoryMove extends IChessMove {
+    encodedBoard: string,
+    figuresTaken: {
+        w: TChessPiece[]
+        b: TChessPiece[]
+    }
+}
+
 export interface IChessMove {
     from: {
         X: number

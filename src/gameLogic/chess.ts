@@ -1,21 +1,13 @@
-import { IChessState, TChessBoard, TChessSide, IChessMove, TChessPiece, TGameMove } from "../types/types"
+import { IChessState, TChessBoard, TChessSide, IChessMove, IHistoryMove, TChessPiece, TGameMove } from "../types/types"
 
 type TDir = (COORD: [number, number], i: number) => [number, number]
 interface IPieceDirs {
     [key: string]: TDir[],
 }
 
-interface IHistoryMove extends IChessMove {
-    encodedBoard: string
-}
-
 export class ChessGame {
     private board: TChessBoard
     private activePlayer: TChessSide
-    private figuresTaken: {
-        w: TChessPiece[]
-        b: TChessPiece[]
-    }
     private history: {
         moves: IHistoryMove[]
         currentIndex: number
@@ -27,12 +19,13 @@ export class ChessGame {
     private winner: TChessSide | null | 'stalemate'
 
     get state() {
+        const figuresTaken = this.history.moves[this.history.currentIndex].figuresTaken
         return structuredClone({
             board: this.board,
             activePlayer: this.activePlayer,
             winner: this.winner,
-            figuresTaken: this.figuresTaken,
-            history: this.history
+            history: this.history,
+            figuresTaken,
         }) as IChessState
     }
 
@@ -41,15 +34,15 @@ export class ChessGame {
         this.activePlayer = 'w'
         this.history = {
             moves: [{
-                encodedBoard: this.encodeBoard(),
                 from: { X: -1, Y: -1 },
-                to: { X: -1, Y: -1 }
+                to: { X: -1, Y: -1 },
+                encodedBoard: this.encodeBoard(),
+                figuresTaken: {
+                    b: [],
+                    w: []
+                }
             }],
             currentIndex: 0
-        }
-        this.figuresTaken = {
-            w: [],
-            b: []
         }
         this.castling = { w: true, b: true }
         this.winner = null
@@ -95,17 +88,16 @@ export class ChessGame {
 
         const square = this.board[A][B]
 
-        if (square !== 'ee') {
-            this.figuresTaken[enemy].push(square)
-        }
+        let pieceTaken: TChessPiece = 'ee'
+
+        if (square !== 'ee') pieceTaken = square
 
         if (
             piece[1] === 'p' &&
             Y + 1 === B &&
             this.board[A][B] === 'ee'
         ) {
-            const pawnTaken = this.board[X][Y + 1]
-            this.figuresTaken[enemy].push(pawnTaken)
+            pieceTaken = this.board[X][Y + 1]
             this.board[X][Y + 1] = 'ee'
         }
 
@@ -114,20 +106,23 @@ export class ChessGame {
             Y - 1 === B &&
             this.board[A][B] === 'ee'
         ) {
-            const pawnTaken = this.board[X][Y - 1]
-            this.figuresTaken[enemy].push(pawnTaken)
+            pieceTaken = this.board[X][Y - 1]
             this.board[X][Y - 1] = 'ee'
         }
 
         this._move([X, Y], [A, B])
 
         this.activePlayer = this.activePlayer === 'b' ? 'w' : 'b'
-        this.history.moves.push({
-            encodedBoard: this.encodeBoard(),
-            from,
-            to
-        })
+
+        const lastMove = structuredClone(this.history.moves[this.history.moves.length - 1]) as IHistoryMove
+        lastMove.encodedBoard = this.encodeBoard()
+        lastMove.from = from
+        lastMove.to = to
+        if (pieceTaken[0] === 'w') lastMove.figuresTaken.w.push(pieceTaken)
+        if (pieceTaken[0] === 'b') lastMove.figuresTaken.b.push(pieceTaken)
+        this.history.moves.push(lastMove)
         this.history.currentIndex += 1
+
         if (piece[1] === 'k' || piece[1] === 'r')
             this.castling[piece[0] as 'w' | 'b'] = false
 
