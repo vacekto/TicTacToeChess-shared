@@ -133,6 +133,18 @@ export class ChessGame {
         this.board = this.createBoard()
         this.activePlayer = 'w'
         this.winner = null
+        this.history = {
+            moves: [{
+                from: { X: -1, Y: -1 },
+                to: { X: -1, Y: -1 },
+                encodedBoard: this.encodeBoard(),
+                figuresTaken: {
+                    b: [],
+                    w: []
+                }
+            }],
+            currentIndex: 0
+        }
     }
 
     forward() {

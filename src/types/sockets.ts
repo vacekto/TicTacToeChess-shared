@@ -27,10 +27,7 @@ export interface ServerToClientEvents {
         lastMove: IChessMove | ITicTacToeMove | IUTicTacToeMove
     ) => void
     online_users_update: (usernames: string[]) => void
-    game_invites_update: (invites: IGameInvite[]) => void
     game_invite: (invite: IGameInvite) => void
-    invite_declined: (invite: IGameInvite) => void
-    invite_expired: (inviteId: string) => void
     test: () => void
 }
 
@@ -40,11 +37,9 @@ export interface ClientToServerEvents {
     leave_lobby: () => void
     leave_game: () => void
     game_move: (move: IChessMove | ITicTacToeMove | IUTicTacToeMove) => void
-    invite_player: (inviteeUsername: string, game: TGameName) => void
+    game_invite: (invite: IGameInvite) => void
     fetch_online_users: () => void
-    fetch_game_invites: () => void
-    accept_invite: (inviteId: string) => void
-    decline_invite: (inviteId: string) => void
+    accept_invite: (invite: IGameInvite) => void
     test: () => void
 }
 

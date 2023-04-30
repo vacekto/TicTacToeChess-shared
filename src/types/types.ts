@@ -17,7 +17,6 @@ export type TGameSide = TChessSide | TTicTacToeSide
 export type TGameMode = 'hotseat' | 'multiplayer' | 'vsPC'
 
 export interface IGameInvite {
-    id: string
     invitee: string
     sender: string
     game: TGameName
@@ -78,12 +77,12 @@ export interface IChessState {
     board: TChessBoard,
     activePlayer: TChessSide,
     winner: 'X' | 'O' | 'stalemate' | null
-    figuresTaken: {
-        w: TChessPiece[]
-        b: TChessPiece[]
-    }
     history: {
         moves: IChessMove[],
         currentIndex: number
+    }
+    figuresTaken: {
+        w: TChessPiece[]
+        b: TChessPiece[]
     }
 }
