@@ -1,4 +1,4 @@
-import { IChessState, TChessBoard, TChessSide, IChessMove, IHistoryMove, TChessPiece, TGameMove } from "../types/types"
+import { IChessState, TChessBoard, TChessSide, IChessMove, TChessPiece, TGameMove } from "../types/types"
 
 type TDir = (COORD: [number, number], i: number) => [number, number]
 interface IPieceDirs {
@@ -8,44 +8,66 @@ interface IPieceDirs {
 export class ChessGame {
     private board: TChessBoard
     private activePlayer: TChessSide
-    private history: {
-        moves: IHistoryMove[]
-        currentIndex: number
-    }
-    private castling: {
-        w: boolean
-        b: boolean
-    }
     private winner: TChessSide | null | 'stalemate'
+    private castlingAvailable: {
+        w: {
+            left: boolean
+            right: boolean
+        }
+        b: {
+            left: boolean
+            right: boolean
+        }
+    }
+    private lastMove?: {
+        from: [number, number]
+        to: [number, number]
+    }
+    private figuresTaken: {
+        w: TChessPiece[],
+        b: TChessPiece[]
+    }
+
+    private history: {
+        stateList: IChessState[]
+        currentStateIndex: number
+    }
 
     get state() {
-        const figuresTaken = this.history.moves[this.history.currentIndex].figuresTaken
         return structuredClone({
             board: this.board,
             activePlayer: this.activePlayer,
             winner: this.winner,
-            history: this.history,
-            figuresTaken,
+            figuresTaken: this.figuresTaken,
+            lastMove: this.lastMove,
+            castlingAvailable: this.castlingAvailable
         }) as IChessState
     }
 
     constructor() {
+
         this.board = this.createBoard()
         this.activePlayer = 'w'
+        this.castlingAvailable = { w: true, b: true }
+        this.winner = null
+        this.figuresTaken = {
+            b: [],
+            w: []
+        }
+
         this.history = {
-            moves: [{
-                from: { X: -1, Y: -1 },
-                to: { X: -1, Y: -1 },
-                encodedBoard: this.encodeBoard(),
+            stateList: [{
+                board: this.createBoard(),
+                activePlayer: 'w',
+                castlingAvailable: { w: true, b: true },
+                winner: null,
                 figuresTaken: {
                     b: [],
                     w: []
                 }
             }],
-            currentIndex: 0
+            currentStateIndex: 0
         }
-        this.castling = { w: true, b: true }
-        this.winner = null
     }
 
 
@@ -56,18 +78,18 @@ export class ChessGame {
         if (piece[0] !== AP[0]) return []
 
         let moves = this.getPotentialMoves([X, Y])
-        const save = this.encodeBoard()
+        const boardSave = this.encodeBoard()
 
         for (let [A, B] of moves) {
             this._move([X, Y], [A, B])
 
             if (this.isCheck()) {
                 moves = moves.filter(coord => {
-                    return (coord[0] !== A || B !== coord[1])
+                    return (coord[0] !== A || coord[1] !== B)
                 })
             }
 
-            this.board = this.decodeBoard(save)
+            this.board = this.decodeBoard(boardSave)
         }
 
         if (piece[1] === 'k')
@@ -78,19 +100,26 @@ export class ChessGame {
 
     move: TGameMove = (move) => {
         const { from, to } = move as IChessMove
-        const [X, Y] = [from.X, from.Y]
-        const [A, B] = [to.X, to.Y]
+        const [X, Y] = from
+        const [A, B] = to
+
         if (this.isOutOfBounds([X, Y])) return
         if (this.isOutOfBounds([A, B])) return
+
+        const legalMoves = this.getLegalMoves([X, Y])
+        let isLegal = false
+
+        for (const [C, D] of legalMoves) {
+            if (C === A && D === B) isLegal = true
+        }
+
+        if (!isLegal) return
+
         const [piece, AP] = [this.board[X][Y], this.activePlayer]
-        const enemy = piece[0] === 'w' ? 'b' : 'w'
-        if (enemy === AP[0]) return
+        const opponent = piece[0] === 'w' ? 'b' : 'w'
+        if (opponent === AP) return
 
-        const square = this.board[A][B]
-
-        let pieceTaken: TChessPiece = 'ee'
-
-        if (square !== 'ee') pieceTaken = square
+        let pieceTaken = this.board[A][B]
 
         if (
             piece[1] === 'p' &&
@@ -114,88 +143,88 @@ export class ChessGame {
 
         this.activePlayer = this.activePlayer === 'b' ? 'w' : 'b'
 
-        const lastMove = structuredClone(this.history.moves[this.history.moves.length - 1]) as IHistoryMove
-        lastMove.encodedBoard = this.encodeBoard()
-        lastMove.from = from
-        lastMove.to = to
-        if (pieceTaken[0] === 'w') lastMove.figuresTaken.w.push(pieceTaken)
-        if (pieceTaken[0] === 'b') lastMove.figuresTaken.b.push(pieceTaken)
-        this.history.moves.push(lastMove)
-        this.history.currentIndex += 1
+        if (pieceTaken !== 'ee')
+            this.figuresTaken[opponent].push(pieceTaken)
+
+        this.lastMove = { from, to }
 
         if (piece[1] === 'k' || piece[1] === 'r')
-            this.castling[piece[0] as 'w' | 'b'] = false
+            this.castlingAvailable[piece[0] as 'w' | 'b'] = false
 
         this.checkForWinner()
+
+        const newState = this.state
+        this.history.stateList.push(newState)
+        this.history.currentStateIndex += 1
+
     }
 
-    resetState() {
+    resetGame() {
         this.board = this.createBoard()
         this.activePlayer = 'w'
+        this.castlingAvailable = { w: true, b: true }
         this.winner = null
+        this.figuresTaken = {
+            b: [],
+            w: []
+        }
+
         this.history = {
-            moves: [{
-                from: { X: -1, Y: -1 },
-                to: { X: -1, Y: -1 },
-                encodedBoard: this.encodeBoard(),
+            stateList: [{
+                board: this.createBoard(),
+                activePlayer: 'w',
+                castlingAvailable: { w: true, b: true },
+                winner: null,
                 figuresTaken: {
                     b: [],
                     w: []
                 }
             }],
-            currentIndex: 0
+            currentStateIndex: 0
         }
     }
 
+    updateState(state: IChessState) {
+        const stateClone = structuredClone(state)
+        this.board = stateClone.board
+        this.activePlayer = stateClone.activePlayer
+        this.figuresTaken = stateClone.figuresTaken
+        this.lastMove = stateClone.lastMove
+        this.castlingAvailable = stateClone.castlingAvailable
+    }
+
     forward() {
-        const [moves, index] = [
-            this.history.moves,
-            this.history.currentIndex
-        ]
+        const newIndex = this.history.currentStateIndex + 1
+        if (newIndex === this.history.stateList.length) return
+        this.history.currentStateIndex += 1
+        const state = this.history.stateList[newIndex]
+        this.updateState(state)
 
-        if (index + 1 === moves.length) return
+    }
 
-        const decodedBoard = this.decodeBoard(
-            moves[index + 1].encodedBoard
-        )
-
-        this.board = decodedBoard
-        this.history.currentIndex += 1
+    test() {
+        console.log(this.history)
     }
 
     backward() {
-        const [moves, index] = [
-            this.history.moves,
-            this.history.currentIndex
-        ]
-
-        if (index === 0) return
-
-        const decodedBoard = this.decodeBoard(
-            moves[index - 1].encodedBoard
-        )
-
-        this.board = decodedBoard
-        this.history.currentIndex -= 1
+        const newIndex = this.history.currentStateIndex - 1
+        if (newIndex === -1) return
+        this.history.currentStateIndex -= 1
+        const state = this.history.stateList[newIndex]
+        this.updateState(state)
     }
 
 
     fastForward() {
-        const moves = this.history.moves
-        const decodedBoard = this.decodeBoard(
-            moves.at(-1)!.encodedBoard
-        )
-        this.board = decodedBoard
-        this.history.currentIndex = moves.length - 1
+        const newIndex = this.history.stateList.length - 1
+        const state = this.history.stateList[newIndex]
+        this.updateState(state)
+
     }
 
     fastBackward() {
-        const moves = this.history.moves
-        const decodeBoard = this.decodeBoard(
-            moves[0].encodedBoard
-        )
-        this.board = decodeBoard
-        this.history.currentIndex = 0
+        const state = this.history.stateList[0]
+        this.updateState(state)
     }
 
     private canPlayerMove(side: 'w' | 'b') {
@@ -251,24 +280,24 @@ export class ChessGame {
     private _move(from: [number, number], to: [number, number]) {
         const [X, Y] = from
         const [A, B] = to
-        const piece = this.board[X][Y]
+        const movingPiece = this.board[X][Y]
 
-        this.board[A][B] = piece
+        this.board[A][B] = movingPiece
         this.board[X][Y] = 'ee'
 
         if (
-            piece === 'wp' &&
+            movingPiece === 'wp' &&
             A === 0
         )
             this.board[A][B] = 'wq'
 
         if (
-            piece === 'bp' &&
+            movingPiece === 'bp' &&
             A === 7
         )
             this.board[A][B] = 'bq'
 
-        if (piece[1] === 'k') {
+        if (movingPiece[1] === 'k') {
             if (X === A) {
                 if (Y - B === -2) this._move([X, 7], [X, 5])
                 if (Y - B === 2) this._move([X, 0], [X, 3])
@@ -286,7 +315,7 @@ export class ChessGame {
     }
 
     private checkForCastling(side: 'w' | 'b', list: [number, number][]) {
-        if (!this.castling[side]) return
+        if (!this.castlingAvailable[side]) return
         if (side !== this.activePlayer[0]) return
         const rowIndex = 'b' === side ? 0 : 7
 
@@ -320,7 +349,7 @@ export class ChessGame {
         let moves: [number, number][] = []
 
         if (piece[1] === 'e') return []
-        if (piece[1] === 'p') return this.getPawnMoves([X, Y])
+        if (piece[1] === 'p') return this.getPawnPotentialMoves([X, Y])
 
         if (
             piece[1] === 'n' ||
@@ -340,9 +369,10 @@ export class ChessGame {
     private isPosEndangered([A, B]: [number, number]) {
         const square = this.board[A][B]
         const AP = this.activePlayer
-        let enemy
+        let enemy: TChessSide
         if (square === 'ee') enemy = AP[0] === 'w' ? 'b' : 'w'
         else enemy = square[0] === 'w' ? 'b' : 'w'
+
         let moves: [number, number][]
         for (const [X, row] of Object.entries(this.board)) {
             for (const [Y, square] of Object.entries(row)) {
@@ -376,15 +406,14 @@ export class ChessGame {
     }
 
 
-    private getPawnMoves([X, Y]: [number, number]) {
+    private getPawnPotentialMoves([X, Y]: [number, number]) {
         const moves: [number, number][] = []
-        const [board, piece] = [
-            this.board,
-            this.board[X][Y],
-        ]
+        const board = this.board
+        const piece = this.board[X][Y]
+
         if (piece[1] !== 'p') return []
         const i = piece[0] === 'b' ? 1 : -1
-        const enemy = piece[0] === 'w' ? 'b' : 'w'
+        const enemy = piece[0] === 'b' ? 'w' : 'b'
 
         if (!this.isOutOfBounds([X + i, Y]) &&
             board[X + i][Y] === 'ee'
@@ -405,19 +434,21 @@ export class ChessGame {
 
 
         if (
-            ((piece[0] === 'w' && X === 6) ||
-                (piece[0] === 'b' && X === 1)) &&
+            (
+                (piece[0] === 'w' && X === 6) ||
+                (piece[0] === 'b' && X === 1)
+            ) &&
             board[X + i][Y] === 'ee' &&
-            board[X + i + i][Y] === 'ee'
+            board[X + 2 * i][Y] === 'ee'
         )
-            moves.push([X + i + i, Y])
+            moves.push([X + 2 * i, Y])
 
 
-        if (this.history.currentIndex === 0) return moves
+        if (this.history.currentStateIndex === 0) return moves
 
-        const lastMove = this.history.moves.at(-1)!
-        const [A, B] = [lastMove.to.X, lastMove.to.Y]
-        const C = lastMove.from.X
+
+        const [A, B] = this.lastMove!.to
+        const C = this.lastMove!.from[0]
 
         if (
             this.board[A][B] === `${enemy}p` &&

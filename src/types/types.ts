@@ -22,23 +22,9 @@ export interface IGameInvite {
     game: TGameName
 }
 
-export interface IHistoryMove extends IChessMove {
-    encodedBoard: string,
-    figuresTaken: {
-        w: TChessPiece[]
-        b: TChessPiece[]
-    }
-}
-
 export interface IChessMove {
-    from: {
-        X: number
-        Y: number
-    }
-    to: {
-        X: number
-        Y: number
-    }
+    from: [number, number]
+    to: [number, number]
 }
 
 export interface IUTicTacToeMove {
@@ -76,13 +62,17 @@ export interface IUTicTacToeState {
 export interface IChessState {
     board: TChessBoard,
     activePlayer: TChessSide,
-    winner: 'X' | 'O' | 'stalemate' | null
-    history: {
-        moves: IChessMove[],
-        currentIndex: number
-    }
+    winner: TChessSide | 'stalemate' | null
     figuresTaken: {
         w: TChessPiece[]
         b: TChessPiece[]
+    }
+    lastMove?: {
+        from: [number, number]
+        to: [number, number]
+    }
+    castlingAvailable: {
+        w: boolean
+        b: boolean
     }
 }
