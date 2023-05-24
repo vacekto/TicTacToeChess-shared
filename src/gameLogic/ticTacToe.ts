@@ -1,7 +1,6 @@
 import {
     ITicTacToeMove,
     ITicTacToeState,
-    TGameMove,
     TTicTacToeBoard,
     TTicTacToeSide,
 } from '../types/types'
@@ -21,6 +20,7 @@ export class TicTacToeGame {
     private board: TTicTacToeBoard
     private size: number
     private winCondition: number
+    private history: ITicTacToeMove[]
     activePlayer: TTicTacToeSide
     winner: TTicTacToeSide | null | 'draw'
     winSegments: [[number, number], [number, number]][]
@@ -32,6 +32,7 @@ export class TicTacToeGame {
         this.activePlayer = startingSide
         this.winner = null
         this.winSegments = []
+        this.history = []
     }
 
     get state() {
@@ -79,8 +80,18 @@ export class TicTacToeGame {
         })
     }
 
-    move: TGameMove = (move, side = this.activePlayer) => {
-        const { X, Y } = move as ITicTacToeMove
+    revert() {
+        const move = this.history.pop()
+        if (!move) return
+        const { X, Y } = move
+        this.board[X][Y] = null
+        this.winner = null
+        this.winSegments = []
+        this.activePlayer = this.activePlayer === 'O' ? 'X' : 'O'
+    }
+
+    move(move: ITicTacToeMove, side: TTicTacToeSide = this.activePlayer) {
+        const { X, Y } = move
         if (
             this.isOutOfBounds([X, Y]) ||
             this.winner
@@ -89,7 +100,16 @@ export class TicTacToeGame {
 
         this.board[X][Y] = side
         this.activePlayer = side === 'O' ? 'X' : 'O'
+        this.history.push(move)
         this.checkForWinner([X, Y])
+    }
+
+    updateState(state: ITicTacToeState) {
+        this.board = structuredClone(state.board)
+        this.activePlayer = state.activePlayer
+        // this.winner = state.winner
+        // this.winSegments = structuredClone(state.winSegments)
+        this.checkForWinner()
     }
 
     private isDraw() {
@@ -107,8 +127,8 @@ export class TicTacToeGame {
             return
         }
         if (!lastMove) {
-            for (let [row, rowIndex] of Object.entries(this.board)) {
-                for (let [square, squareIndex] of Object.entries(row)) {
+            for (let [rowIndex, row] of Object.entries(this.board)) {
+                for (let [squareIndex, square] of Object.entries(row)) {
                     this.checkForWinner([+rowIndex, +squareIndex])
                 }
             }
@@ -117,7 +137,6 @@ export class TicTacToeGame {
 
         if (this.isOutOfBounds(lastMove)) return
         const [X, Y] = lastMove
-
         if (this.board[X][Y] === null) return
 
         const player = this.board[X][Y] as TTicTacToeSide

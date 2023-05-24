@@ -6,12 +6,19 @@ import {
     IUTicTacToeMove,
     IUTicTacToeState,
     TGameInstance,
-    TGameMove,
     TGameName,
     TGameSide,
     IGameInvite
 } from "./types";
 
+export interface IGameData {
+    instance: TGameInstance
+    opponentUsername: string
+    roomId: string
+    playAgain: boolean
+    side?: TGameSide
+    opponentSide?: TGameSide
+}
 
 export interface ServerToClientEvents {
     username_accepted: (username: string) => void
@@ -19,15 +26,15 @@ export interface ServerToClientEvents {
     start_game: (
         gameName: TGameName,
         opponentUsername: string,
-        gameSide: TGameSide
+        ticTacToeBoardSize?: number,
+        ticTacToeWinCondition?: number
     ) => void
     leave_game: () => void
-    game_state_update: (
-        state: IChessState | ITicTacToeState | IUTicTacToeState,
-        lastMove: IChessMove | ITicTacToeMove | IUTicTacToeMove
-    ) => void
+    game_state_update: (state: IChessState | ITicTacToeState | IUTicTacToeState) => void
     online_users_update: (usernames: string[]) => void
     game_invite: (invite: IGameInvite) => void
+    set_side: (side: TGameSide) => void
+    new_game: () => void
     test: () => void
 }
 
@@ -40,6 +47,8 @@ export interface ClientToServerEvents {
     game_invite: (invite: IGameInvite) => void
     fetch_online_users: () => void
     accept_invite: (invite: IGameInvite) => void
+    select_side: (side: TGameSide) => void
+    play_again: () => void
     test: () => void
 }
 
@@ -49,8 +58,5 @@ export interface InterServerEvents {
 
 export interface SocketData {
     username: string;
-    gameInstance: TGameInstance & {
-        move: TGameMove
-    };
-    gameRoom: string;
+    game: IGameData;
 }

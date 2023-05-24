@@ -1,6 +1,7 @@
-import { IChessState, TChessBoard, TChessSide, IChessMove, TChessPiece, TGameMove } from "../types/types"
+import { IChessState, TChessBoard, TChessSide, IChessMove, TChessPiece } from "../types/types"
 
 type TDir = (COORD: [number, number], i: number) => [number, number]
+
 interface IPieceDirs {
     [key: string]: TDir[],
 }
@@ -8,7 +9,7 @@ interface IPieceDirs {
 export class ChessGame {
     private board: TChessBoard
     private activePlayer: TChessSide
-    private winner: TChessSide | null | 'stalemate'
+    private winner: TChessSide | null | 'draw'
     private castlingAvailable: {
         w: {
             left: boolean
@@ -30,7 +31,7 @@ export class ChessGame {
 
     private history: {
         stateList: IChessState[]
-        currentStateIndex: number
+        currentIndex: number
     }
 
     get state() {
@@ -48,7 +49,15 @@ export class ChessGame {
 
         this.board = this.createBoard()
         this.activePlayer = 'w'
-        this.castlingAvailable = { w: true, b: true }
+        this.castlingAvailable = {
+            w: {
+                left: true,
+                right: true
+            }, b: {
+                left: true,
+                right: true
+            }
+        }
         this.winner = null
         this.figuresTaken = {
             b: [],
@@ -56,17 +65,8 @@ export class ChessGame {
         }
 
         this.history = {
-            stateList: [{
-                board: this.createBoard(),
-                activePlayer: 'w',
-                castlingAvailable: { w: true, b: true },
-                winner: null,
-                figuresTaken: {
-                    b: [],
-                    w: []
-                }
-            }],
-            currentStateIndex: 0
+            stateList: [this.createDefaulState()],
+            currentIndex: 0
         }
     }
 
@@ -98,8 +98,8 @@ export class ChessGame {
         return moves
     }
 
-    move: TGameMove = (move) => {
-        const { from, to } = move as IChessMove
+    move(move: IChessMove) {
+        const { from, to } = move
         const [X, Y] = from
         const [A, B] = to
 
@@ -115,14 +115,17 @@ export class ChessGame {
 
         if (!isLegal) return
 
-        const [piece, AP] = [this.board[X][Y], this.activePlayer]
-        const opponent = piece[0] === 'w' ? 'b' : 'w'
-        if (opponent === AP) return
+        const piece = this.board[X][Y][1]
+        const side = this.board[X][Y][0] as TChessSide
+        const opponent = side === 'w' ? 'b' : 'w' as TChessSide
+
+        if (opponent === this.activePlayer) return
+        if (piece === 'e') return
 
         let pieceTaken = this.board[A][B]
 
         if (
-            piece[1] === 'p' &&
+            piece === 'p' &&
             Y + 1 === B &&
             this.board[A][B] === 'ee'
         ) {
@@ -131,7 +134,7 @@ export class ChessGame {
         }
 
         if (
-            piece[1] === 'p' &&
+            piece === 'p' &&
             Y - 1 === B &&
             this.board[A][B] === 'ee'
         ) {
@@ -148,21 +151,38 @@ export class ChessGame {
 
         this.lastMove = { from, to }
 
-        if (piece[1] === 'k' || piece[1] === 'r')
-            this.castlingAvailable[piece[0] as 'w' | 'b'] = false
+        if (piece === 'k') {
+            this.castlingAvailable[side].left = false
+            this.castlingAvailable[side].right = false
+        }
+
+        if (piece === 'r' && Y === 0)
+            this.castlingAvailable[side].left = false
+
+        if (piece === 'r' && Y === 7)
+            this.castlingAvailable[side].right = false
 
         this.checkForWinner()
 
         const newState = this.state
         this.history.stateList.push(newState)
-        this.history.currentStateIndex += 1
+        this.history.currentIndex += 1
 
     }
 
-    resetGame() {
+    resetState() {
         this.board = this.createBoard()
         this.activePlayer = 'w'
-        this.castlingAvailable = { w: true, b: true }
+        this.castlingAvailable = {
+            w: {
+                left: true,
+                right: true
+            },
+            b: {
+                left: true,
+                right: true
+            }
+        }
         this.winner = null
         this.figuresTaken = {
             b: [],
@@ -170,46 +190,38 @@ export class ChessGame {
         }
 
         this.history = {
-            stateList: [{
-                board: this.createBoard(),
-                activePlayer: 'w',
-                castlingAvailable: { w: true, b: true },
-                winner: null,
-                figuresTaken: {
-                    b: [],
-                    w: []
-                }
-            }],
-            currentStateIndex: 0
+            stateList: [this.createDefaulState()],
+            currentIndex: 0
         }
+        delete this.lastMove
     }
 
-    updateState(state: IChessState) {
+    updateState(state: IChessState, addToHistory?: boolean) {
         const stateClone = structuredClone(state)
         this.board = stateClone.board
         this.activePlayer = stateClone.activePlayer
         this.figuresTaken = stateClone.figuresTaken
         this.lastMove = stateClone.lastMove
         this.castlingAvailable = stateClone.castlingAvailable
+
+        if (!addToHistory) return
+
+        const index = ++this.history.currentIndex
+        this.history.stateList.splice(index, Infinity, state)
     }
 
     forward() {
-        const newIndex = this.history.currentStateIndex + 1
+        const newIndex = this.history.currentIndex + 1
         if (newIndex === this.history.stateList.length) return
-        this.history.currentStateIndex += 1
+        this.history.currentIndex += 1
         const state = this.history.stateList[newIndex]
         this.updateState(state)
-
-    }
-
-    test() {
-        console.log(this.history)
     }
 
     backward() {
-        const newIndex = this.history.currentStateIndex - 1
+        const newIndex = this.history.currentIndex - 1
         if (newIndex === -1) return
-        this.history.currentStateIndex -= 1
+        this.history.currentIndex -= 1
         const state = this.history.stateList[newIndex]
         this.updateState(state)
     }
@@ -217,13 +229,14 @@ export class ChessGame {
 
     fastForward() {
         const newIndex = this.history.stateList.length - 1
+        this.history.currentIndex = newIndex
         const state = this.history.stateList[newIndex]
         this.updateState(state)
-
     }
 
     fastBackward() {
         const state = this.history.stateList[0]
+        this.history.currentIndex = 0
         this.updateState(state)
     }
 
@@ -251,7 +264,7 @@ export class ChessGame {
         if (hasLegalMoves) return
         const check = this.isCheck()
         if (check) this.winner = APSide === 'w' ? 'b' : 'w'
-        else this.winner = 'stalemate'
+        else this.winner = 'draw'
     }
 
 
@@ -297,11 +310,9 @@ export class ChessGame {
         )
             this.board[A][B] = 'bq'
 
-        if (movingPiece[1] === 'k') {
-            if (X === A) {
-                if (Y - B === -2) this._move([X, 7], [X, 5])
-                if (Y - B === 2) this._move([X, 0], [X, 3])
-            }
+        if (movingPiece[1] === 'k' && X === A) {
+            if (Y - B === -2) this._move([X, 7], [X, 5])
+            if (Y - B === 2) this._move([X, 0], [X, 3])
         }
     }
 
@@ -315,13 +326,15 @@ export class ChessGame {
     }
 
     private checkForCastling(side: 'w' | 'b', list: [number, number][]) {
-        if (!this.castlingAvailable[side]) return
         if (side !== this.activePlayer[0]) return
+
         const rowIndex = 'b' === side ? 0 : 7
 
         if (
+            this.castlingAvailable[side].right &&
             this.board[rowIndex][5] === 'ee' &&
             this.board[rowIndex][6] === 'ee' &&
+            this.board[rowIndex][7] === `${side}r` &&
             !this.isPosEndangered([rowIndex, 4]) &&
             !this.isPosEndangered([rowIndex, 5]) &&
             !this.isPosEndangered([rowIndex, 6])
@@ -329,6 +342,8 @@ export class ChessGame {
             list.push([rowIndex, 6])
 
         if (
+            this.castlingAvailable[side].left &&
+            this.board[rowIndex][0] === `${side}r` &&
             this.board[rowIndex][1] === 'ee' &&
             this.board[rowIndex][2] === 'ee' &&
             this.board[rowIndex][3] === 'ee' &&
@@ -444,7 +459,7 @@ export class ChessGame {
             moves.push([X + 2 * i, Y])
 
 
-        if (this.history.currentStateIndex === 0) return moves
+        if (this.history.currentIndex === 0) return moves
 
 
         const [A, B] = this.lastMove!.to
@@ -494,6 +509,28 @@ export class ChessGame {
         for (let k = 0; k < 8; k++) board[1][k] = 'bp'
 
         return board
+    }
+
+    private createDefaulState = () => {
+        return structuredClone({
+            board: this.createBoard(),
+            activePlayer: 'w',
+            castlingAvailable: {
+                w: {
+                    left: true,
+                    right: true
+                },
+                b: {
+                    left: true,
+                    right: true
+                }
+            },
+            winner: null,
+            figuresTaken: {
+                b: [],
+                w: []
+            }
+        })
     }
 
     private diagonal: TDir[] = [

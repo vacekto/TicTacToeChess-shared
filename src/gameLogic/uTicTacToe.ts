@@ -3,20 +3,11 @@ import {
     TTicTacToeSide,
     IUTicTacToeState,
     IUTicTacToeMove,
-    TGameMove,
 } from "../types/types";
 
 
 
 export class UTicTacToeGame {
-
-    // Matrix coordinates [X, Y] describe X-th row and Y-th column. To Access 
-    // an element at [X, Y] on matrix variable named myMatrix, use myMatrix[X][Y]
-
-    // Board property is 3x3 matrix representing overall state of game
-    // comprised of 9 distinct segments. Board[X][Y] is TicTacToeGame instance
-    // representing segment at [X, Y] that is used to track segments state. 
-
 
     board: TicTacToeGame[][]
     segmentInstance: TicTacToeGame
@@ -47,6 +38,7 @@ export class UTicTacToeGame {
                 segmentBoard[i][j] = this.board[i][j].state.winner
             }
         }
+
         return structuredClone({
             board,
             segmentBoard,
@@ -54,6 +46,37 @@ export class UTicTacToeGame {
             activePlayer: this.activePlayer,
             activeSegment: this.activeSegment
         }) as IUTicTacToeState
+    }
+
+    // export interface IUTicTacToeState {
+    //     board: ('X' | 'O' | null)[][][][];
+    //     segmentBoard: ('X' | 'O' | 'draw' | null)[][];
+    //     activeSegment: [number, number] | null;
+    //     activePlayer: 'X' | 'O';
+    //     winner: 'X' | 'O' | 'draw' | null;
+    // }
+
+    updateState(state: IUTicTacToeState) {
+        const newState = structuredClone(state) as IUTicTacToeState
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                this.board[i][j].updateState({
+                    board: newState.board[i][j],
+                    activePlayer: newState.activePlayer,
+                    winner: null,
+                    winSegments: []
+                })
+
+                const winner = this.board[i][j].winner
+                if (winner === 'O' || winner === 'X') {
+                    this.segmentInstance.move({ X: i, Y: j }, winner)
+                    this.winner = this.segmentInstance.winner
+                }
+            }
+        }
+
+        this.activePlayer = newState.activePlayer
+        this.activeSegment = newState.activeSegment
     }
 
     resetState() {
@@ -81,8 +104,8 @@ export class UTicTacToeGame {
         return true
     }
 
-    move: TGameMove = (move) => {
-        const { SX, SY, X, Y } = move as IUTicTacToeMove
+    move(move: IUTicTacToeMove) {
+        const { SX, SY, X, Y } = move
         const AS = this.activeSegment
         if (AS && (SX !== AS[0] || SY !== AS[1])) return
         if (this.board[SX][SY].state.board[X][Y]) return

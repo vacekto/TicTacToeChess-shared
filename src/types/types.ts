@@ -6,10 +6,7 @@ export type TGameName = 'ticTacToe' | 'uTicTacToe' | 'chess'
 export type TTicTacToeBoard = (TTicTacToeSide | null)[][]
 export type TTicTacToeSide = 'X' | 'O'
 export type TChessSide = 'w' | 'b'
-export type TChessPiece =
-    | 'bk' | 'bq' | 'br' | 'bb' | 'bn' | 'bp'
-    | 'wk' | 'wq' | 'wr' | 'wb' | 'wn' | 'wp'
-    | 'ee'
+export type TChessPiece = | 'bk' | 'bq' | 'br' | 'bb' | 'bn' | 'bp' | 'wk' | 'wq' | 'wr' | 'wb' | 'wn' | 'wp' | 'ee'
 export type TChessBoard = TChessPiece[][]
 export type TGameInstance = ChessGame | TicTacToeGame | UTicTacToeGame
 export type TPlayerSide = TChessSide | TTicTacToeSide
@@ -17,9 +14,11 @@ export type TGameSide = TChessSide | TTicTacToeSide
 export type TGameMode = 'hotseat' | 'multiplayer' | 'vsPC'
 
 export interface IGameInvite {
-    invitee: string
-    sender: string
+    inviteeUsername: string
+    senderUsername: string
     game: TGameName
+    ticTacToeBoardSize?: number
+    ticTacToeWinCondition?: number
 }
 
 export interface IChessMove {
@@ -39,10 +38,7 @@ export interface ITicTacToeMove {
     Y: number
 }
 
-export type TGameMove = (
-    move: IChessMove | ITicTacToeMove | IUTicTacToeMove,
-    side?: TTicTacToeSide
-) => void
+export type TGameMove = IChessMove | ITicTacToeMove | IUTicTacToeMove
 
 export interface ITicTacToeState {
     board: ('X' | 'O' | null)[][],
@@ -62,7 +58,7 @@ export interface IUTicTacToeState {
 export interface IChessState {
     board: TChessBoard,
     activePlayer: TChessSide,
-    winner: TChessSide | 'stalemate' | null
+    winner: TChessSide | 'draw' | null
     figuresTaken: {
         w: TChessPiece[]
         b: TChessPiece[]
@@ -72,7 +68,14 @@ export interface IChessState {
         to: [number, number]
     }
     castlingAvailable: {
-        w: boolean
-        b: boolean
+        w: {
+            left: boolean
+            right: boolean
+        }
+        b: {
+            left: boolean
+            right: boolean
+        }
     }
 }
+
