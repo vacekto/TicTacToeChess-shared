@@ -8,7 +8,9 @@ import {
     TGameInstance,
     TGameName,
     TGameSide,
-    IGameInvite
+    IGameInvite,
+    TGameMove,
+    TAIMoveProps
 } from "./types";
 
 export interface IGameData {
@@ -35,6 +37,7 @@ export interface ServerToClientEvents {
     game_invite: (invite: IGameInvite) => void
     set_side: (side: TGameSide) => void
     new_game: () => void
+    ai_move: (move: TGameMove) => void
     test: () => void
 }
 
@@ -49,6 +52,7 @@ export interface ClientToServerEvents {
     accept_invite: (invite: IGameInvite) => void
     select_side: (side: TGameSide) => void
     play_again: () => void
+    get_ai_move: (game: TGameName, props: TAIMoveProps) => void
     test: () => void
 }
 

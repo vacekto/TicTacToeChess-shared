@@ -79,11 +79,11 @@ export class UTicTacToeGame {
         this.activeSegment = newState.activeSegment
     }
 
-    resetState() {
+    resetState(startingSide: TTicTacToeSide = 'O') {
         this.board = this.initBoard(this.activePlayer)
         this.segmentInstance = new TicTacToeGame(3, 3, this.activePlayer)
         this.activeSegment = null
-        this.activePlayer = this.activePlayer
+        this.activePlayer = startingSide
         this.winner = null
     }
 
@@ -107,8 +107,8 @@ export class UTicTacToeGame {
     move(move: IUTicTacToeMove) {
         const { SX, SY, X, Y } = move
         const AS = this.activeSegment
-        if (AS && (SX !== AS[0] || SY !== AS[1])) return
-        if (this.board[SX][SY].state.board[X][Y]) return
+        if (AS && (SX !== AS[0] || SY !== AS[1]))
+            if (this.board[SX][SY].state.board[X][Y]) return
         if (this.board[SX][SY].winner) return
 
         this.board[SX][SY].move({ X, Y }, this.activePlayer)

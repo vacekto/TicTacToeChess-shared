@@ -34,6 +34,13 @@ export class ChessGame {
         currentIndex: number
     }
 
+    private halfmoveClock: number
+
+    convertCoord: {
+        numericToConventional: (coord: [number, number]) => string,
+        conventionalToNumeric: (coord: string) => [number, number]
+    }
+
     get state() {
         return structuredClone({
             board: this.board,
@@ -41,7 +48,7 @@ export class ChessGame {
             winner: this.winner,
             figuresTaken: this.figuresTaken,
             lastMove: this.lastMove,
-            castlingAvailable: this.castlingAvailable
+            castlingAvailable: this.castlingAvailable,
         }) as IChessState
     }
 
@@ -63,13 +70,71 @@ export class ChessGame {
             b: [],
             w: []
         }
-
         this.history = {
             stateList: [this.createDefaulState()],
             currentIndex: 0
         }
+        this.halfmoveClock = 0
+        this.convertCoord = (() => {
+            const boardLetters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+
+            return {
+                numericToConventional: ([X, Y]: [number, number]) => {
+                    return (boardLetters[Y] + String(7 - X + 1))
+                },
+
+                conventionalToNumeric: (coord: string) => {
+                    return [7 - (+coord[1] - 1), boardLetters.indexOf(coord[0])] as [number, number]
+                }
+            }
+        })()
+
     }
 
+    getFEN() {
+
+        let positions = ''
+        this.board.forEach((row, rowIndex) => {
+            let emptyCount = 0
+
+            row.forEach(square => {
+                if (square === 'ee') {
+                    emptyCount++
+                    return
+                }
+                let piece = square[0] === 'b' ? square[1] : square[1].toUpperCase()
+                if (emptyCount > 0) piece += emptyCount
+                positions += piece
+                emptyCount = 0
+            })
+            if (emptyCount > 0) positions += emptyCount
+            if (rowIndex !== 7) positions += '/'
+        })
+
+
+        let castling = ''
+        if (this.castlingAvailable.w.right) castling += 'K'
+        if (this.castlingAvailable.w.left) castling += 'Q'
+        if (this.castlingAvailable.w.right) castling += 'k'
+        if (this.castlingAvailable.w.left) castling += 'q'
+        if (!castling) castling = '-'
+
+
+        let enPassant = '-'
+        if (this.lastMove) {
+            const [X, Y] = this.lastMove.to
+            const distance = Math.abs(X - this.lastMove.from[0])
+            if (
+                this.board[X][Y][1] === 'p' &&
+                distance === 2
+            ) {
+                const coord: [number, number] = this.activePlayer === 'b' ? [5, Y] : [2, Y]
+                enPassant = this.convertCoord.numericToConventional(coord)
+            }
+        }
+
+        return `${positions} ${this.activePlayer} ${castling} ${enPassant} ${this.halfmoveClock} ${this.history.currentIndex % 2}`
+    }
 
     getLegalMoves([X, Y]: [number, number]) {
         if (this.isOutOfBounds([X, Y])) return []
@@ -110,26 +175,30 @@ export class ChessGame {
         let isLegal = false
 
         for (const [C, D] of legalMoves) {
-            if (C === A && D === B) isLegal = true
+            if (C === A && D === B) {
+                isLegal = true
+                break
+            }
         }
 
         if (!isLegal) return
 
-        const piece = this.board[X][Y][1]
         const side = this.board[X][Y][0] as TChessSide
+        const piece = this.board[X][Y][1]
         const opponent = side === 'w' ? 'b' : 'w' as TChessSide
 
         if (opponent === this.activePlayer) return
         if (piece === 'e') return
 
-        let pieceTaken = this.board[A][B]
+        let pieceCaptured = this.board[A][B]
 
+        // checks here for En Passant move
         if (
             piece === 'p' &&
             Y + 1 === B &&
             this.board[A][B] === 'ee'
         ) {
-            pieceTaken = this.board[X][Y + 1]
+            pieceCaptured = this.board[X][Y + 1]
             this.board[X][Y + 1] = 'ee'
         }
 
@@ -138,16 +207,19 @@ export class ChessGame {
             Y - 1 === B &&
             this.board[A][B] === 'ee'
         ) {
-            pieceTaken = this.board[X][Y - 1]
+            pieceCaptured = this.board[X][Y - 1]
             this.board[X][Y - 1] = 'ee'
         }
 
         this._move([X, Y], [A, B])
 
+        if (piece === 'p' || pieceCaptured !== 'ee')
+            this.halfmoveClock = 0
+
         this.activePlayer = this.activePlayer === 'b' ? 'w' : 'b'
 
-        if (pieceTaken !== 'ee')
-            this.figuresTaken[opponent].push(pieceTaken)
+        if (pieceCaptured !== 'ee')
+            this.figuresTaken[opponent].push(pieceCaptured)
 
         this.lastMove = { from, to }
 

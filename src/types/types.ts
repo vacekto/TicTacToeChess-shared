@@ -12,6 +12,8 @@ export type TGameInstance = ChessGame | TicTacToeGame | UTicTacToeGame
 export type TPlayerSide = TChessSide | TTicTacToeSide
 export type TGameSide = TChessSide | TTicTacToeSide
 export type TGameMode = 'hotseat' | 'multiplayer' | 'vsPC'
+export type TGameMove = IChessMove | ITicTacToeMove | IUTicTacToeMove
+export type TAIMoveProps = ITicTacToeAIMoveProps
 
 export interface IGameInvite {
     inviteeUsername: string
@@ -38,7 +40,12 @@ export interface ITicTacToeMove {
     Y: number
 }
 
-export type TGameMove = IChessMove | ITicTacToeMove | IUTicTacToeMove
+export interface ITicTacToeAIMoveProps {
+    board: ('X' | 'O' | null)[][],
+    activePlayer: 'X' | 'O',
+    winCondition?: number,
+    skill?: number,
+}
 
 export interface ITicTacToeState {
     board: ('X' | 'O' | null)[][],

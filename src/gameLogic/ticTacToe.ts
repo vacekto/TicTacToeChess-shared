@@ -26,6 +26,8 @@ export class TicTacToeGame {
     winSegments: [[number, number], [number, number]][]
 
     constructor(size: number = 10, winCondition: number = 5, startingSide: TTicTacToeSide = 'O') {
+        if (winCondition > size) throw new Error('win condition cannot be greater that side')
+
         this.board = this.initNewBoard(size)
         this.size = size
         this.winCondition = winCondition
@@ -44,9 +46,9 @@ export class TicTacToeGame {
         }) as ITicTacToeState
     }
 
-    resetState() {
+    resetState(startingSide: TTicTacToeSide = 'O') {
         this.board = this.initNewBoard(this.size)
-        this.activePlayer = this.activePlayer === 'O' ? 'X' : 'O'
+        this.activePlayer = startingSide
         this.winner = null
         this.winSegments = []
     }
@@ -107,8 +109,6 @@ export class TicTacToeGame {
     updateState(state: ITicTacToeState) {
         this.board = structuredClone(state.board)
         this.activePlayer = state.activePlayer
-        // this.winner = state.winner
-        // this.winSegments = structuredClone(state.winSegments)
         this.checkForWinner()
     }
 
