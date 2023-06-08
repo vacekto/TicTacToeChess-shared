@@ -1,22 +1,17 @@
 import { suggestTicTacToeMove } from "./TicTacToeAI";
-import { IUTicTacToeMove } from '../types/types'
+import { IUTicTacToeMove, IUTicTacToeAIMoveProps } from '../types/types'
 interface IPotentialSegment {
     coord: [number, number]
 }
 
-type TSuggestUTicTacToeMove = (
-    board: ('X' | 'O' | null)[][][][],
-    activeSegment: [number, number] | null,
-    activePlayer: 'O' | 'X',
-    segmentBoard: ('X' | 'O' | 'draw' | null)[][]
-) => IUTicTacToeMove
+type TSuggestUTicTacToeMove = (props: IUTicTacToeAIMoveProps) => IUTicTacToeMove
 
-export const suggestUTicTacToeMove: TSuggestUTicTacToeMove = (
+export const suggestUTicTacToeMove: TSuggestUTicTacToeMove = ({
     board,
     activeSegment,
     activePlayer,
     segmentBoard
-) => {
+}) => {
     if (activeSegment) {
         const [SX, SY] = activeSegment
         const { X, Y } = suggestTicTacToeMove({ board: board[SX][SY], activePlayer, winCondition: 3 })

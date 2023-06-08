@@ -13,7 +13,7 @@ export type TPlayerSide = TChessSide | TTicTacToeSide
 export type TGameSide = TChessSide | TTicTacToeSide
 export type TGameMode = 'hotseat' | 'multiplayer' | 'vsPC'
 export type TGameMove = IChessMove | ITicTacToeMove | IUTicTacToeMove
-export type TAIMoveProps = ITicTacToeAIMoveProps
+export type TAIMoveProps = ITicTacToeAIMoveProps | IUTicTacToeAIMoveProps
 
 export interface IGameInvite {
     inviteeUsername: string
@@ -45,6 +45,13 @@ export interface ITicTacToeAIMoveProps {
     activePlayer: 'X' | 'O',
     winCondition?: number,
     skill?: number,
+}
+
+export interface IUTicTacToeAIMoveProps {
+    board: ('X' | 'O' | null)[][][][],
+    activeSegment: [number, number] | null,
+    activePlayer: 'O' | 'X',
+    segmentBoard: ('X' | 'O' | 'draw' | null)[][]
 }
 
 export interface ITicTacToeState {

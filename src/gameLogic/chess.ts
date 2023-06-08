@@ -103,10 +103,11 @@ export class ChessGame {
                     return
                 }
                 let piece = square[0] === 'b' ? square[1] : square[1].toUpperCase()
-                if (emptyCount > 0) piece += emptyCount
+                if (emptyCount > 0) piece = emptyCount + piece
                 positions += piece
                 emptyCount = 0
             })
+
             if (emptyCount > 0) positions += emptyCount
             if (rowIndex !== 7) positions += '/'
         })
