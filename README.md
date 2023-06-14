@@ -6,7 +6,7 @@ This is simple game platform for chess, tic tac toe and ultimate tic tac toe. Yo
 # Dev stack
 - React
 - express
-- [socket.io](https://socket.io/)
+- socket.io
 - typescript
 - Sass
 
