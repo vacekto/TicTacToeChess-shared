@@ -8,12 +8,10 @@ type TDir = (
 ) => [number, number]
 
 const isOutOfBounds = ([X, Y]: [number, number], size: number) => {
-    if (
+    return (
         X < 0 || X >= size ||
         Y < 0 || Y >= size
     )
-        return true
-    return false
 }
 
 const lines: [TDir, TDir][] = [
